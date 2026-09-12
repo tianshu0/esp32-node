@@ -1,0 +1,29 @@
+# esp32-node 默认配置（目标芯片 ESP32-C3 / 4MB Flash / NimBLE Peripheral）
+# 固定目标芯片，避免换机器构建时误用 esp32 默认目标
+CONFIG_IDF_TARGET="esp32c3"
+
+# 增大主任务栈，容纳 C++ 组件初始化（NimBLE + 组件装配）
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+
+# 自定义分区表（4MB 方案，见 partitions.csv）
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_OFFSET=0x8000
+
+# Flash 大小：4MB
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+
+# BLE：使用 NimBLE 协议栈，本设备只做 Peripheral（等 hub 主动连接）
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=y
+CONFIG_BT_NIMBLE_ROLE_BROADCASTER=y
+CONFIG_BT_NIMBLE_ROLE_CENTRAL=n
+CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
+# 单连接：一个节点同时只服务一个 hub
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
+
+# 低功耗：电源管理 + tickless idle（运行时由 app_config.power_save 开关控制，
+# 默认关闭，仅电池供电场景启用）
+CONFIG_PM_ENABLE=y
+CONFIG_FREERTOS_USE_TICKLESS_IDLE=y

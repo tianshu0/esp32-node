@@ -1,0 +1,8 @@
+# ESP32-C3 4MB Flash 分区表
+# 总空间 0x400000 = 4MB
+# 本工程未实现 OTA，故只留单一 factory app；
+# 节点固件（NimBLE + 传感器驱动）体积小，2MB 已留足余量
+# Name,   Type, SubType, Offset,   Size, Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xf000,   0x1000,
+factory,  app,  factory, 0x20000,  0x200000,

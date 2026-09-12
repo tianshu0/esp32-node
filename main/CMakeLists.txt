@@ -1,0 +1,17 @@
+# main 组件：仅做装配与系统级初始化
+idf_component_register(
+    SRCS
+        "main.cpp"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        app_config
+        sensor_registry
+        sensor_driver
+        data_pipeline
+        ble_peripheral
+        power_manager
+        esp_event
+        log
+        bt
+)
