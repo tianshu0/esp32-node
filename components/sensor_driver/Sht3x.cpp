@@ -2,7 +2,7 @@
 
 #include <cstdio>
 #include <cstring>
-#include "sensor_driver/I2cBus.hpp"
+#include "i2c_bus/I2cBus.hpp"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"

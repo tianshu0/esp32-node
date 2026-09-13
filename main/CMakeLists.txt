@@ -6,10 +6,12 @@ idf_component_register(
         "."
     REQUIRES
         app_config
+        i2c_bus
         sensor_registry
         sensor_driver
         data_pipeline
         ble_peripheral
+        oled_display
         power_manager
         esp_event
         log

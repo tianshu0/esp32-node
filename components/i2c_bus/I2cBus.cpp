@@ -1,6 +1,7 @@
-#include "sensor_driver/I2cBus.hpp"
+#include "i2c_bus/I2cBus.hpp"
 
 #include "esp_log.h"
+#include "esp_system.h"
 
 namespace esp32node {
 
@@ -8,8 +9,13 @@ static const char* TAG = "i2c_bus";
 
 I2cBus::~I2cBus()
 {
+    if (mutex_ != nullptr) {
+        vSemaphoreDelete(mutex_);
+        mutex_ = nullptr;
+    }
     if (bus_ != nullptr) {
         i2c_del_master_bus(bus_);
+        bus_ = nullptr;
     }
 }
 
@@ -17,6 +23,13 @@ esp_err_t I2cBus::Init(int sda_gpio, int scl_gpio, uint32_t clk_hz)
 {
     if (bus_ != nullptr) {
         return ESP_ERR_INVALID_STATE;
+    }
+
+    mutex_ = xSemaphoreCreateMutex();
+    if (mutex_ == nullptr) {
+        ESP_LOGE(TAG, "create bus mutex failed, free heap=%u",
+                 static_cast<unsigned>(esp_get_free_heap_size()));
+        return ESP_ERR_NO_MEM;
     }
 
     i2c_master_bus_config_t cfg = {};
@@ -31,6 +44,8 @@ esp_err_t I2cBus::Init(int sda_gpio, int scl_gpio, uint32_t clk_hz)
     esp_err_t err = i2c_new_master_bus(&cfg, &bus_);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "i2c_new_master_bus failed: %s", esp_err_to_name(err));
+        vSemaphoreDelete(mutex_);
+        mutex_ = nullptr;
         bus_ = nullptr;
         return err;
     }
@@ -61,6 +76,20 @@ esp_err_t I2cBus::AddDevice(uint8_t addr_7bit, i2c_master_dev_handle_t* out)
 bool I2cBus::Probe(uint8_t addr_7bit)
 {
     return bus_ != nullptr && i2c_master_probe(bus_, addr_7bit, kProbeTimeoutMs) == ESP_OK;
+}
+
+void I2cBus::Lock()
+{
+    if (mutex_ != nullptr) {
+        xSemaphoreTake(mutex_, portMAX_DELAY);
+    }
+}
+
+void I2cBus::Unlock()
+{
+    if (mutex_ != nullptr) {
+        xSemaphoreGive(mutex_);
+    }
 }
 
 } // namespace esp32node

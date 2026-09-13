@@ -8,20 +8,14 @@ namespace esp32node {
 
 static const char* TAG = "sensor_driver";
 
-esp_err_t SensorDriver::Init(AppConfig* config, SensorRegistry* registry)
+esp_err_t SensorDriver::Init(AppConfig* config, SensorRegistry* registry, I2cBus* bus)
 {
-    if (config == nullptr || registry == nullptr) {
+    if (config == nullptr || registry == nullptr || bus == nullptr) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    esp_err_t err = bus_.Init(config->I2cSda(), config->I2cScl());
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "i2c bus init failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
     // SHT3X：温度 + 相对湿度
-    if (sht3x_.Init(bus_) == ESP_OK) {
+    if (sht3x_.Init(*bus) == ESP_OK) {
         sht3x_ready_ = true;
         registry->Register("temp_hum", "SHT3X",
                            "{\"temp\":\"float\",\"humidity\":\"float\",\"unit\":\"C/%\"}",
@@ -31,7 +25,7 @@ esp_err_t SensorDriver::Init(AppConfig* config, SensorRegistry* registry)
     }
 
     // BMP180：气压 + 温度 + 海拔
-    if (bmp180_.Init(bus_) == ESP_OK) {
+    if (bmp180_.Init(*bus) == ESP_OK) {
         bmp180_.SetSeaLevelHpa(config->SeaLevelHpa());
         bmp180_ready_ = true;
         registry->Register("pressure", "BMP180",
