@@ -88,7 +88,7 @@ private:
     // 缓冲区做成成员：握手回调运行在 NimBLE host 任务栈上，避免大栈帧
     char rx_buf_[256];
     char tx_buf_[1024];
-    char notify_cache_[192];
+    char notify_cache_[384];
 };
 
 } // namespace esp32node

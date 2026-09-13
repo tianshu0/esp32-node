@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include "esp_log.h"
+#include "esp_system.h"
 #include "cJSON.h"
 #include "host/ble_hs.h"
 #include "host/ble_hs_mbuf.h"
@@ -141,7 +142,8 @@ esp_err_t BlePeripheral::Init(AppConfig* config, SensorRegistry* registry)
         ESP_LOGE(TAG, "ble_gatts_add_svcs failed: %d", rc);
         return ESP_FAIL;
     }
-    h_notify_ = s_notify_val_handle;
+    // 注意：此刻 GATT 尚未 start，s_notify_val_handle 还是 0，不能在这里取。
+    // 句柄要等 OnSync（ble_gatts_start 完成）后才有效，订阅事件里再兜底一次。
 
     rc = ble_svc_gap_device_name_set(kDeviceName);
     if (rc != 0) {
@@ -156,10 +158,17 @@ esp_err_t BlePeripheral::Init(AppConfig* config, SensorRegistry* registry)
     nimble_port_freertos_init(&BlePeripheral::HostTask);
 
     // 数据发送任务：从队列取包 -> GATT Notify
-    xTaskCreate(&BlePeripheral::TaskMain, "ble_tx", 4096, this, 6, &task_);
+    BaseType_t tx_task_ok = xTaskCreate(&BlePeripheral::TaskMain, "ble_tx", 4096,
+                                        this, 6, &task_);
+    if (tx_task_ok != pdPASS) {
+        task_ = nullptr;
+        ESP_LOGE(TAG, "xTaskCreate ble_tx failed, free heap=%u",
+                 static_cast<unsigned>(esp_get_free_heap_size()));
+        return ESP_ERR_NO_MEM;
+    }
 
-    ESP_LOGI(TAG, "ble peripheral initialized (node_id=%s, ff02 handle=%d)",
-             config->NodeId().c_str(), h_notify_);
+    ESP_LOGI(TAG, "ble peripheral initialized (node_id=%s, notify handle assigned after sync)",
+             config->NodeId().c_str());
     return ESP_OK;
 }
 
@@ -191,6 +200,10 @@ void BlePeripheral::OnSync()
         ESP_LOGE(TAG, "ble_hs_id_infer_auto failed: %d", rc);
         return;
     }
+
+    // host sync 时 ble_gatts_start 已执行，ff02 值句柄已分配，此刻取才有效
+    s_instance_->h_notify_ = s_notify_val_handle;
+    ESP_LOGI(TAG, "gatt ready, ff02 notify handle=%d", s_instance_->h_notify_);
 
     s_instance_->Advertise();
 }
@@ -286,6 +299,10 @@ int BlePeripheral::GapEventCb(ble_gap_event* event, void* arg)
         ESP_LOGI(TAG, "subscribe: conn=%d attr=%d notify=%d",
                  event->subscribe.conn_handle, event->subscribe.attr_handle,
                  event->subscribe.cur_notify);
+        // 兜底：以协议栈在订阅事件中给出的 ff02 值句柄为准（正常应与 sync 时取到的一致）
+        if (event->subscribe.cur_notify && event->subscribe.attr_handle != 0) {
+            self->h_notify_ = event->subscribe.attr_handle;
+        }
         return 0;
 
     default:
@@ -407,7 +424,20 @@ bool BlePeripheral::SendNotify(const char* data, int len)
         return false;
     }
     if (conn_handle_ == BLE_HS_CONN_HANDLE_NONE || h_notify_ == 0) {
-        return false;   // 未连接
+        // 句柄未就绪（未连接/未订阅，或 sync 前取值为 0），显式打日志避免静默丢包
+        ESP_LOGW(TAG, "notify skipped: conn=%d notify_handle=%d",
+                 conn_handle_, h_notify_);
+        return false;
+    }
+
+    // ATT Notification 单包载荷上限 = 协商 MTU - 3（1 字节 opcode + 2 字节句柄），
+    // 超长时 NimBLE 不报错而是静默截断（hello_ack 曾被切到 253 字节导致 hub 解析出
+    // 空能力清单）。发送前显式拦截，让协议超长作为可见错误暴露。
+    const int mtu_payload = static_cast<int>(ble_att_mtu(conn_handle_)) - 3;
+    if (len > mtu_payload) {
+        ESP_LOGE(TAG, "notify too long: len=%d > mtu payload=%d (mtu=%d)",
+                 len, mtu_payload, ble_att_mtu(conn_handle_));
+        return false;
     }
 
     struct os_mbuf* om = ble_hs_mbuf_from_flat(data, static_cast<uint16_t>(len));

@@ -22,6 +22,10 @@ CONFIG_BT_NIMBLE_ROLE_CENTRAL=n
 CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
 # 单连接：一个节点同时只服务一个 hub
 CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
+# ATT MTU 提到 512：握手 hello_ack 带完整能力清单（types+各传感器 format，
+# 约 290 字节），默认 256 时单包 payload 上限 253，NimBLE 会静默截断 JSON。
+# 与 hub 协商取双方最小值，两边必须同时 >=512。
+CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=512
 
 # 低功耗：电源管理 + tickless idle（运行时由 app_config.power_save 开关控制，
 # 默认关闭，仅电池供电场景启用）
