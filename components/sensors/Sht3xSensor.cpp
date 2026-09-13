@@ -1,4 +1,4 @@
-#include "sensor_driver/Sht3x.hpp"
+#include "sensors/Sht3xSensor.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -12,7 +12,6 @@ namespace esp32node {
 
 static const char* TAG = "sht3x";
 
-static constexpr uint32_t kI2cTimeoutMs = 100;
 // 单次测量：高重复度、不启用时钟拉伸（测量期间主机等待 ~15ms）
 static constexpr uint16_t kCmdMeasureHighNoStretch = 0x2400;
 static constexpr uint16_t kCmdSoftReset = 0x30A2;
@@ -33,9 +32,14 @@ static uint8_t Crc8(const uint8_t* data, size_t len)
     return crc;
 }
 
-esp_err_t Sht3x::Init(I2cBus& bus, uint8_t addr)
+esp_err_t Sht3xSensor::Start(HardwareContext& hw, AppConfig& /*config*/,
+                             SensorRegistry& registry)
 {
-    esp_err_t err = bus.AddDevice(addr, &dev_);
+    if (hw.i2c == nullptr) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t err = hw.i2c->AddDevice(kAddrDefault, &dev_);
     if (err != ESP_OK) {
         return err;
     }
@@ -46,11 +50,22 @@ esp_err_t Sht3x::Init(I2cBus& bus, uint8_t addr)
         return err;
     }
     vTaskDelay(pdMS_TO_TICKS(2));
-    ESP_LOGI(TAG, "sht3x ready at 0x%02X", addr);
+
+    // 本地屏幕字段：T（温度）/ H（湿度）。线上 format_json 保持原协议不变。
+    static const SensorField kFields[] = {
+        {"temp",     "T", "\xC2\xB0" "C", 1},
+        {"humidity", "H", "%",            1},
+    };
+    registry.Register(Type(), "SHT3X",
+                      "{\"temp\":\"float\",\"humidity\":\"float\",\"unit\":\"C/%\"}",
+                      kFields, sizeof(kFields) / sizeof(kFields[0]),
+                      &Sht3xSensor::ReadThunk, this);
+
+    ESP_LOGI(TAG, "sht3x ready at 0x%02X", kAddrDefault);
     return ESP_OK;
 }
 
-esp_err_t Sht3x::SendCommand(uint16_t cmd)
+esp_err_t Sht3xSensor::SendCommand(uint16_t cmd)
 {
     if (dev_ == nullptr) {
         return ESP_ERR_INVALID_STATE;
@@ -59,7 +74,7 @@ esp_err_t Sht3x::SendCommand(uint16_t cmd)
     return i2c_master_transmit(dev_, buf, sizeof(buf), kI2cTimeoutMs);
 }
 
-bool Sht3x::Read(float* temperature_c, float* humidity_pct)
+bool Sht3xSensor::Read(float* temperature_c, float* humidity_pct)
 {
     if (dev_ == nullptr) {
         return false;
@@ -91,9 +106,9 @@ bool Sht3x::Read(float* temperature_c, float* humidity_pct)
     return true;
 }
 
-bool Sht3x::ReadThunk(void* ctx, SensorReading* out)
+bool Sht3xSensor::ReadThunk(void* ctx, SensorReading* out)
 {
-    Sht3x* self = static_cast<Sht3x*>(ctx);
+    Sht3xSensor* self = static_cast<Sht3xSensor*>(ctx);
     if (self == nullptr || out == nullptr) {
         return false;
     }

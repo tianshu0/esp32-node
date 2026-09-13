@@ -8,7 +8,7 @@
 //        -> 周期性 Notify 传感器数据
 //   断开 -> 通知 data_pipeline 暂停 -> 重新广播，等 hub 重连
 //
-// 为避免循环依赖，ble_peripheral 不引入 sensor_driver：
+// 为避免循环依赖，ble_peripheral 不引入 sensors 驱动：
 //   - 能力清单来自 sensor_registry（只有描述，没有驱动细节）
 //   - 采样数据来自 data_pipeline 的事件，本组件只做转发
 #include "ble_peripheral/BlePeripheral.hpp"

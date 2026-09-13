@@ -1,4 +1,4 @@
-#include "sensor_driver/Bmp180.hpp"
+#include "sensors/Bmp180Sensor.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -28,9 +28,13 @@ static int16_t Be16(const uint8_t* p)
     return static_cast<int16_t>((static_cast<uint16_t>(p[0]) << 8) | p[1]);
 }
 
-esp_err_t Bmp180::Init(I2cBus& bus, uint8_t addr)
+esp_err_t Bmp180Sensor::Start(HardwareContext& hw, AppConfig& config,
+                              SensorRegistry& registry)
 {
-    esp_err_t err = bus.AddDevice(addr, &dev_);
+    if (hw.i2c == nullptr) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    esp_err_t err = hw.i2c->AddDevice(kAddr, &dev_);
     if (err != ESP_OK) {
         return err;
     }
@@ -62,12 +66,25 @@ esp_err_t Bmp180::Init(I2cBus& bus, uint8_t addr)
     mc_  = Be16(calib + 18);
     md_  = Be16(calib + 20);
 
+    SetSeaLevelHpa(config.SeaLevelHpa());
+
+    // 本地屏幕只显示气压一行（温度与 SHT3X 重复、海拔占空间，故不登记显示字段）；
+    // values_json 仍包含 pressure/temp/altitude 三个值，线上 format_json 不变。
+    static const SensorField kFields[] = {
+        {"pressure", "P", "hPa", 1},
+    };
+    registry.Register(Type(), "BMP180",
+                      "{\"pressure\":\"float\",\"temp\":\"float\","
+                      "\"altitude\":\"float\",\"unit\":\"hPa/C/m\"}",
+                      kFields, sizeof(kFields) / sizeof(kFields[0]),
+                      &Bmp180Sensor::ReadThunk, this);
+
     ESP_LOGI(TAG, "bmp180 ready at 0x%02X (ac1=%d ac4=%u ac5=%u)",
-             addr, ac1_, ac4_, ac5_);
+             kAddr, ac1_, ac4_, ac5_);
     return ESP_OK;
 }
 
-bool Bmp180::ReadRegs(uint8_t reg, uint8_t* buf, size_t len)
+bool Bmp180Sensor::ReadRegs(uint8_t reg, uint8_t* buf, size_t len)
 {
     if (dev_ == nullptr || buf == nullptr) {
         return false;
@@ -78,7 +95,7 @@ bool Bmp180::ReadRegs(uint8_t reg, uint8_t* buf, size_t len)
     return i2c_master_receive(dev_, buf, len, kI2cTimeoutMs) == ESP_OK;
 }
 
-bool Bmp180::WriteReg(uint8_t reg, uint8_t value)
+bool Bmp180Sensor::WriteReg(uint8_t reg, uint8_t value)
 {
     if (dev_ == nullptr) {
         return false;
@@ -87,7 +104,7 @@ bool Bmp180::WriteReg(uint8_t reg, uint8_t value)
     return i2c_master_transmit(dev_, buf, sizeof(buf), kI2cTimeoutMs) == ESP_OK;
 }
 
-bool Bmp180::ReadRawTemp(int32_t* ut)
+bool Bmp180Sensor::ReadRawTemp(int32_t* ut)
 {
     if (!WriteReg(kRegCtrl, kCmdReadTemp)) {
         return false;
@@ -102,7 +119,7 @@ bool Bmp180::ReadRawTemp(int32_t* ut)
     return true;
 }
 
-bool Bmp180::ReadRawPressure(int32_t* up)
+bool Bmp180Sensor::ReadRawPressure(int32_t* up)
 {
     const uint8_t oss = kOversampling;
     if (!WriteReg(kRegCtrl, static_cast<uint8_t>(0x34 | (oss << 6)))) {
@@ -121,7 +138,7 @@ bool Bmp180::ReadRawPressure(int32_t* up)
     return true;
 }
 
-void Bmp180::Compute(int32_t ut, int32_t up, int32_t* temp_0c1, int32_t* pressure_pa) const
+void Bmp180Sensor::Compute(int32_t ut, int32_t up, int32_t* temp_0c1, int32_t* pressure_pa) const
 {
     // 温度（datasheet 3.5 节整数算法，结果单位 0.1℃）
     int32_t x1 = ((ut - static_cast<int32_t>(ac6_)) * static_cast<int32_t>(ac5_)) >> 15;
@@ -160,7 +177,7 @@ void Bmp180::Compute(int32_t ut, int32_t up, int32_t* temp_0c1, int32_t* pressur
     *pressure_pa = p;
 }
 
-bool Bmp180::Read(float* temperature_c, float* pressure_hpa, float* altitude_m)
+bool Bmp180Sensor::Read(float* temperature_c, float* pressure_hpa, float* altitude_m)
 {
     if (dev_ == nullptr) {
         return false;
@@ -198,9 +215,9 @@ bool Bmp180::Read(float* temperature_c, float* pressure_hpa, float* altitude_m)
     return true;
 }
 
-bool Bmp180::ReadThunk(void* ctx, SensorReading* out)
+bool Bmp180Sensor::ReadThunk(void* ctx, SensorReading* out)
 {
-    Bmp180* self = static_cast<Bmp180*>(ctx);
+    Bmp180Sensor* self = static_cast<Bmp180Sensor*>(ctx);
     if (self == nullptr || out == nullptr) {
         return false;
     }

@@ -32,7 +32,9 @@ CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=512
 CONFIG_PM_ENABLE=y
 CONFIG_FREERTOS_USE_TICKLESS_IDLE=y
 
-# ============ OLED 显示（SSD1315 128x64 单色，LVGL 9 + esp_lvgl_port）============
+# ============ 显示（默认 SSD1315 128x64 单色 OLED，LVGL 9 + esp_lvgl_port）============
+# 屏/传感器/板型为编译期选择，见 main/Kconfig.projbuild（idf.py menuconfig
+# -> Node hardware profile）。选 NODE_DISPLAY_NONE 时显示源文件不编入（LVGL 仍构建）。
 # LVGL 用内置内存池（LV_USE_BUILTIN_MALLOC），lv_init() 一次性向堆申请 LV_MEM_SIZE。
 # 节点 UI 只有一屏约 10 个对象，16KB 足够（默认 64KB 对 C3 的 188KB 堆太大）。
 CONFIG_LV_MEM_SIZE_KILOBYTES=16

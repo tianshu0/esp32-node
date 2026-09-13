@@ -1,4 +1,4 @@
-// BMP180（GY-68）气压/温度传感器驱动（I2C）
+// BMP180（GY-68）气压/温度传感器驱动（I2C）—— SensorDevice 插件实现
 //
 // - 7 位地址：0x77（GY-68 模块固定，SDO 悬空）
 // - 芯片 ID：寄存器 0xD0 读回 0x55
@@ -10,23 +10,21 @@
 
 #include <cstdint>
 #include "esp_err.h"
+#include "sensors/SensorDevice.hpp"
 #include "sensor_registry/SensorRegistry.hpp"
 #include "driver/i2c_master.h"
 
 namespace esp32node {
 
-class I2cBus;
-
-class Bmp180 {
+class Bmp180Sensor : public SensorDevice {
 public:
     static constexpr uint8_t kAddr = 0x77;
     // 过采样精度（oss）：0=1 次 1=2 次 2=4 次 3=8 次
     static constexpr uint8_t kOversampling = 1;
 
-    Bmp180() = default;
-
-    // 挂载设备、校验芯片 ID、读取出厂校准系数
-    esp_err_t Init(I2cBus& bus, uint8_t addr = kAddr);
+    const char* Type() const override { return "pressure"; }
+    esp_err_t Start(HardwareContext& hw, AppConfig& config,
+                    SensorRegistry& registry) override;
 
     // 采集：温度（℃）、气压（hPa）、海拔（m，可传 nullptr 跳过）
     bool Read(float* temperature_c, float* pressure_hpa, float* altitude_m = nullptr);

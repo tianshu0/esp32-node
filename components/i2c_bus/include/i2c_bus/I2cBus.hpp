@@ -1,7 +1,7 @@
 // i2c_bus 组件：I2C 主机总线封装（ESP-IDF 新版 i2c_master 驱动）
 //
-// 由 main 持有，SHT3X / BMP180（sensor_driver）与 SSD1315 OLED（oled_display）
-// 共用同一条总线，各设备只从总线拿到自己的设备句柄。
+// 由板型装配层创建并放入 HardwareContext，SHT3X / BMP180（sensors）与
+// SSD1315 OLED（display_service）共用同一条总线，各设备只从总线拿到自己的设备句柄。
 //
 // 默认 400kHz：整屏 OLED 刷新（1KB + 控制字节）在 100kHz 下约 90ms，
 // 会明显拖住 LVGL 刷新任务；400kHz 下约 23ms。SHT3X（≤1MHz）与

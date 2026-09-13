@@ -43,6 +43,7 @@ esp_err_t SensorRegistry::Init()
 
 esp_err_t SensorRegistry::Register(const char* type, const char* model,
                                    const char* format_json,
+                                   const SensorField* fields, int field_count,
                                    SensorReadFn read, void* ctx)
 {
     if (type == nullptr || type[0] == '\0' || read == nullptr) {
@@ -52,17 +53,31 @@ esp_err_t SensorRegistry::Register(const char* type, const char* model,
         ESP_LOGW(TAG, "registry full, drop sensor %s", type);
         return ESP_ERR_NO_MEM;
     }
+    if (field_count > kMaxFieldsPerSensor) {
+        ESP_LOGW(TAG, "sensor %s has %d fields, truncate to %d",
+                 type, field_count, kMaxFieldsPerSensor);
+        field_count = kMaxFieldsPerSensor;
+    }
 
     Entry& e = entries_[count_];
     std::strncpy(e.type, type, sizeof(e.type) - 1);
     std::strncpy(e.model, model ? model : "unknown", sizeof(e.model) - 1);
     std::strncpy(e.format, format_json ? format_json : "{}", sizeof(e.format) - 1);
+    e.field_count = 0;
+    for (int i = 0; i < field_count && fields != nullptr; ++i) {
+        std::strncpy(e.fields[i].key, fields[i].key, sizeof(e.fields[i].key) - 1);
+        std::strncpy(e.fields[i].label, fields[i].label, sizeof(e.fields[i].label) - 1);
+        std::strncpy(e.fields[i].unit, fields[i].unit, sizeof(e.fields[i].unit) - 1);
+        e.fields[i].decimals = fields[i].decimals;
+        ++e.field_count;
+    }
     e.read = read;
     e.ctx = ctx;
     ++count_;
 
     RebuildJson();
-    ESP_LOGI(TAG, "registered sensor: %s (%s)", e.type, e.model);
+    ESP_LOGI(TAG, "registered sensor: %s (%s, %d display field(s))",
+             e.type, e.model, static_cast<int>(e.field_count));
     return ESP_OK;
 }
 
@@ -72,6 +87,38 @@ const char* SensorRegistry::TypeAt(int index) const
         return "";
     }
     return entries_[index].type;
+}
+
+int SensorRegistry::IndexOfType(const char* type) const
+{
+    if (type == nullptr) {
+        return -1;
+    }
+    for (int i = 0; i < count_; ++i) {
+        if (std::strncmp(entries_[i].type, type, sizeof(entries_[i].type)) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int SensorRegistry::FieldCountAt(int sensor_index) const
+{
+    if (sensor_index < 0 || sensor_index >= count_) {
+        return 0;
+    }
+    return entries_[sensor_index].field_count;
+}
+
+const SensorField& SensorRegistry::FieldAt(int sensor_index, int field_index) const
+{
+    // 越界时返回第 0 个字段的静态空对象（调用方应先用 FieldCountAt 判断）
+    static const SensorField kEmpty = {};
+    if (sensor_index < 0 || sensor_index >= count_ ||
+        field_index < 0 || field_index >= entries_[sensor_index].field_count) {
+        return kEmpty;
+    }
+    return entries_[sensor_index].fields[field_index];
 }
 
 int SensorRegistry::ReadAll(SensorReading* out, int max) const

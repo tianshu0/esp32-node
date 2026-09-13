@@ -1,4 +1,4 @@
-// SHT3X（SHT30）温湿度传感器驱动（I2C）
+// SHT3X（SHT30）温湿度传感器驱动（I2C）—— SensorDevice 插件实现
 //
 // - 7 位地址：0x44（ADDR 接低，模块默认）/ 0x45（ADDR 接高）
 // - 单次测量、高重复度、不启用时钟拉伸（命令 0x2400），量程：
@@ -8,22 +8,20 @@
 
 #include <cstdint>
 #include "esp_err.h"
+#include "sensors/SensorDevice.hpp"
 #include "sensor_registry/SensorRegistry.hpp"
 #include "driver/i2c_master.h"
 
 namespace esp32node {
 
-class I2cBus;
-
-class Sht3x {
+class Sht3xSensor : public SensorDevice {
 public:
     static constexpr uint8_t kAddrDefault = 0x44;
     static constexpr uint8_t kAddrAlt = 0x45;
 
-    Sht3x() = default;
-
-    // 挂载设备并软复位到已知状态
-    esp_err_t Init(I2cBus& bus, uint8_t addr = kAddrDefault);
+    const char* Type() const override { return "temp_hum"; }
+    esp_err_t Start(HardwareContext& hw, AppConfig& config,
+                    SensorRegistry& registry) override;
 
     // 单次采集：温度（℃）+ 相对湿度（%RH）
     bool Read(float* temperature_c, float* humidity_pct);
@@ -32,6 +30,7 @@ public:
     static bool ReadThunk(void* ctx, SensorReading* out);
 
 private:
+    static constexpr uint32_t kI2cTimeoutMs = 100;
     esp_err_t SendCommand(uint16_t cmd);
 
     i2c_master_dev_handle_t dev_ = nullptr;

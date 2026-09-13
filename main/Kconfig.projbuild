@@ -1,0 +1,40 @@
+# 节点硬件配置（编译期选择，对标 esp32-xiaozhi 的板型选择机制）
+#
+# 三个正交维度：
+#   NODE_BOARD    板型：引脚映射与整体装配（main/boards/<name>/）
+#   NODE_SENSOR_* 挂哪些传感器驱动（多选，未选不编入固件，省 flash/RAM）
+#   NODE_DISPLAY  用什么显示屏（单选；未接的屏运行时探测失败会自动禁用）
+#
+# 新增部件的步骤见 README「硬件扩展」。
+
+menu "Node hardware profile"
+
+    choice NODE_BOARD
+        prompt "Board profile"
+        help
+            选择目标板型。每个板型对应 main/boards/<name>/ 目录，
+            其中 Pins.hpp 定义引脚、Board.cpp 负责装配总线/传感器/显示屏。
+        config NODE_BOARD_C3_I2C_OLED
+            bool "ESP32-C3 + I2C sensors + SSD1315 OLED (default)"
+    endchoice
+
+    menu "Sensors"
+        config NODE_SENSOR_SHT3X
+            bool "SHT3X temperature/humidity sensor (I2C 0x44/0x45)"
+            default y
+        config NODE_SENSOR_BMP180
+            bool "BMP180 pressure sensor (I2C 0x77)"
+            default y
+    endmenu
+
+    choice NODE_DISPLAY
+        prompt "Display"
+        help
+            选择显示驱动。“显示什么内容”由内容模板（Screen）决定，与驱动解耦。
+        config NODE_DISPLAY_SSD1315
+            bool "SSD1315 0.96\" 128x64 monochrome I2C OLED"
+        config NODE_DISPLAY_NONE
+            bool "No display"
+    endchoice
+
+endmenu
