@@ -9,6 +9,10 @@ if(CONFIG_NODE_SENSOR_BMP180)
     list(APPEND SRCS "Bmp180Sensor.cpp")
 endif()
 
+if(CONFIG_NODE_SENSOR_VOC21)
+    list(APPEND SRCS "Voc21Sensor.cpp")
+endif()
+
 idf_component_register(
     SRCS ${SRCS}
     INCLUDE_DIRS "include"
@@ -16,6 +20,7 @@ idf_component_register(
         app_config
         hardware_context
         i2c_bus
+        uart_bus
         sensor_registry
         esp_driver_i2c
         esp_timer

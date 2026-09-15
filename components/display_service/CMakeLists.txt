@@ -13,6 +13,13 @@ if(CONFIG_NODE_DISPLAY_SSD1315)
     )
 endif()
 
+if(CONFIG_NODE_DISPLAY_SSD1306_128X32)
+    list(APPEND SRCS
+        "Ssd1306Display.cpp"
+        "CompactDashboardScreen.cpp"
+    )
+endif()
+
 idf_component_register(
     SRCS ${SRCS}
     INCLUDE_DIRS "include"

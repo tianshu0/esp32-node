@@ -12,11 +12,13 @@
 #pragma once
 
 #include "i2c_bus/I2cBus.hpp"
+#include "uart_bus/UartBus.hpp"
 
 namespace esp32node {
 
 struct HardwareContext {
     I2cBus* i2c = nullptr;
+    UartBus* uart = nullptr;
     // 将来扩展：SpiBus* spi = nullptr; 等
 };
 

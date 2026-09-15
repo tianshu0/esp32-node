@@ -25,6 +25,9 @@ menu "Node hardware profile"
         config NODE_SENSOR_BMP180
             bool "BMP180 pressure sensor (I2C 0x77)"
             default y
+        config NODE_SENSOR_VOC21
+            bool "21VOC 5-in-1 air quality module (UART 9600, TVOC/CH2O/eCO2/T/H)"
+            default n
     endmenu
 
     choice NODE_DISPLAY
@@ -33,6 +36,8 @@ menu "Node hardware profile"
             选择显示驱动。“显示什么内容”由内容模板（Screen）决定，与驱动解耦。
         config NODE_DISPLAY_SSD1315
             bool "SSD1315 0.96\" 128x64 monochrome I2C OLED"
+        config NODE_DISPLAY_SSD1306_128X32
+            bool "SSD1306 0.91\" 128x32 monochrome I2C OLED"
         config NODE_DISPLAY_NONE
             bool "No display"
     endchoice
