@@ -51,12 +51,13 @@ void Voc21Sensor::Feed(const uint8_t* data, size_t len)
         }
 
         if (rx_len_ == kFrameLen) {
-            // 校验和：B0~B10 累加取低 8 位
+            // 校验和：B11 = (0x100 - (B0~B10 累加 & 0xFF)) & 0xFF，即累加和的补码
             uint8_t sum = 0;
             for (size_t j = 0; j < kFrameLen - 1; ++j) {
                 sum += rx_buf_[j];
             }
-            if (sum == rx_buf_[kFrameLen - 1]) {
+            uint8_t expected = static_cast<uint8_t>(0x100u - sum);
+            if (expected == rx_buf_[kFrameLen - 1]) {
                 tvoc_  = static_cast<uint16_t>((rx_buf_[1] << 8) | rx_buf_[2]);
                 ch2o_  = static_cast<uint16_t>((rx_buf_[3] << 8) | rx_buf_[4]);
                 eco2_  = static_cast<uint16_t>((rx_buf_[5] << 8) | rx_buf_[6]);
@@ -66,8 +67,8 @@ void Voc21Sensor::Feed(const uint8_t* data, size_t len)
                 humidity_pct_ = static_cast<float>(raw_h) * 0.1f;
                 has_valid_ = true;
             } else {
-                ESP_LOGW(TAG, "checksum mismatch: calc=0x%02X got=0x%02X",
-                         sum, rx_buf_[kFrameLen - 1]);
+                ESP_LOGW(TAG, "checksum mismatch: expected=0x%02X got=0x%02X",
+                         expected, rx_buf_[kFrameLen - 1]);
             }
             // 无论校验是否通过，清空缓冲等待下一帧头
             rx_len_ = 0;

@@ -44,15 +44,7 @@ CONFIG_LV_FONT_MONTSERRAT_10=y
 CONFIG_LV_FONT_MONTSERRAT_12=y
 CONFIG_LV_FONT_MONTSERRAT_14=y
 
-# ============ 板型 / 传感器 / 显示屏（编译期正交选择）============
-# 如需修改，运行 idf.py menuconfig -> Node hardware profile，或直接改这里。
-# 板型：ESP32-C3 + I2C 传感器组 + OLED
-CONFIG_NODE_BOARD_C3_I2C_OLED=y
-# 传感器：默认启用 21VOC（UART 五合一空气质量），SHT3X/BMP180 按需开启
-# CONFIG_NODE_SENSOR_SHT3X is not set
-# CONFIG_NODE_SENSOR_BMP180 is not set
-CONFIG_NODE_SENSOR_VOC21=y
-# 显示屏：0.91" SSD1306 128x32（如需 0.96" SSD1315 128x64 改为 NODE_DISPLAY_SSD1315）
-# CONFIG_NODE_DISPLAY_SSD1315 is not set
-CONFIG_NODE_DISPLAY_SSD1306_128X32=y
-# CONFIG_NODE_DISPLAY_NONE is not set
+# 注：板型 / 传感器 / 显示屏（NODE_BOARD / NODE_SENSOR_* / NODE_DISPLAY）属于
+# 项目自定义硬件选型，定义在 main/Kconfig.projbuild，不放本文件；
+# 通过 idf.py menuconfig -> Node hardware profile 选择，结果保存在自动生成的
+# sdkconfig（已 gitignore）。全新构建时的默认值由 Kconfig.projbuild 中的 default 决定。

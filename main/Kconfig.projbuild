@@ -21,13 +21,13 @@ menu "Node hardware profile"
     menu "Sensors"
         config NODE_SENSOR_SHT3X
             bool "SHT3X temperature/humidity sensor (I2C 0x44/0x45)"
-            default y
+            default n
         config NODE_SENSOR_BMP180
             bool "BMP180 pressure sensor (I2C 0x77)"
-            default y
+            default n
         config NODE_SENSOR_VOC21
             bool "21VOC 5-in-1 air quality module (UART 9600, TVOC/CH2O/eCO2/T/H)"
-            default n
+            default y
     endmenu
 
     choice NODE_DISPLAY
