@@ -75,7 +75,7 @@ private:
     struct Entry {
         char type[24];
         char model[16];
-        char format[80];
+        char format[128];  // 21VOC 五合一 format JSON 达 97 字节，80 会截断导致 hello_ack 畸形
         SensorField fields[kMaxFieldsPerSensor] = {};
         uint8_t field_count = 0;
         SensorReadFn read = nullptr;

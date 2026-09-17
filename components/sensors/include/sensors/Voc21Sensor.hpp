@@ -55,6 +55,9 @@ private:
     uint16_t eco2_ = 0;
     float temperature_c_ = 0.0f;
     float humidity_pct_ = 0.0f;
+
+    // 调试：前几帧有效数据打印原始帧+解码值，用于核对字段映射
+    int debug_dump_left_ = 3;
 };
 
 } // namespace esp32node

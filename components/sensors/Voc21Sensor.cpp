@@ -66,6 +66,22 @@ void Voc21Sensor::Feed(const uint8_t* data, size_t len)
                 uint16_t raw_h = static_cast<uint16_t>((rx_buf_[9] << 8) | rx_buf_[10]);
                 humidity_pct_ = static_cast<float>(raw_h) * 0.1f;
                 has_valid_ = true;
+                if (debug_dump_left_ > 0) {
+                    --debug_dump_left_;
+                    char hex[3 * kFrameLen] = {};
+                    int off = 0;
+                    for (size_t j = 0; j < kFrameLen; ++j) {
+                        off += std::snprintf(hex + off, sizeof(hex) - off, "%02X ",
+                                             rx_buf_[j]);
+                    }
+                    ESP_LOGI(TAG, "frame[%d]: %s| tvoc=%u ch2o=%u eco2=%u t=%.1f h=%.1f",
+                             3 - debug_dump_left_, hex,
+                             static_cast<unsigned>((rx_buf_[1] << 8) | rx_buf_[2]),
+                             static_cast<unsigned>((rx_buf_[3] << 8) | rx_buf_[4]),
+                             static_cast<unsigned>((rx_buf_[5] << 8) | rx_buf_[6]),
+                             static_cast<double>(temperature_c_),
+                             static_cast<double>(humidity_pct_));
+                }
             } else {
                 ESP_LOGW(TAG, "checksum mismatch: expected=0x%02X got=0x%02X",
                          expected, rx_buf_[kFrameLen - 1]);
