@@ -2,8 +2,6 @@
 #
 # 注意：REQUIRES 必须无条件声明——ESP-IDF 在 Kconfig 变量注入前的早期阶段就要收集
 # 组件依赖；条件化 REQUIRES 会在全新 configure 时丢依赖。只对 SRCS 做条件编译。
-# 因此即使选了 NODE_DISPLAY_NONE，LVGL 仍参与构建（驱动源文件不编入，死代码由
-# 链接器回收），换取配置机制在全新克隆构建时的稳定性。
 set(SRCS)
 
 if(CONFIG_NODE_DISPLAY_SSD1315)
@@ -20,6 +18,18 @@ if(CONFIG_NODE_DISPLAY_SSD1306_128X32)
     )
 endif()
 
+if(CONFIG_NODE_DISPLAY_ILI9341_240X320)
+    list(APPEND SRCS
+        "esp_lcd_ili9341.c"
+        "SpitftTouchDisplay.cpp"
+        "fonts/lv_font_zh16.c"
+        "fonts/lv_font_zh24.c"
+    )
+    if(CONFIG_NODE_TOUCH_XPT2046)
+        list(APPEND SRCS "xpt2046.cpp")
+    endif()
+endif()
+
 idf_component_register(
     SRCS ${SRCS}
     INCLUDE_DIRS "include"
@@ -29,8 +39,9 @@ idf_component_register(
         ble_peripheral
         i2c_bus
         hardware_context
+        fan_control
         esp_lcd
-        esp_driver_i2c
+        driver
         esp_common
         log
         lvgl
