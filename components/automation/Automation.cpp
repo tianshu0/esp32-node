@@ -88,7 +88,7 @@ out:
     if (err == ESP_OK) {
         const char* op_str[] = {">", "<", ">=", "<="};
         int op_idx = static_cast<int>(rule.op);
-        ESP_LOGI(TAG, "rule[%d] saved: %s %s %.1f -> fan %d%% dur %us",
+        ESP_LOGI(TAG, "rule[%d] saved: %s %s %.1f -> fan %d%% dur %" PRIu32 " s",
                  idx, rule.sensor_field,
                  (op_idx >= 0 && op_idx <= 3) ? op_str[op_idx] : "?",
                  rule.threshold, rule.fan_power,

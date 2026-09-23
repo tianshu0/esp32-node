@@ -18,7 +18,6 @@
 
 #include "app_config/AppConfig.hpp"
 #include "sensor_registry/SensorRegistry.hpp"
-#include "ble_peripheral/BlePeripheral.hpp"
 #include "i2c_bus/I2cBus.hpp"
 #include "uart_bus/UartBus.hpp"
 #include "hardware_context/HardwareContext.hpp"
@@ -133,13 +132,13 @@ void BoardAssemble(NodeContext& c)
     if (fan_err != ESP_OK) {
         ESP_LOGW(TAG, "fan control disabled: %s", esp_err_to_name(fan_err));
     }
+    c.fan = &fan;  // 回填给 wifi_portal（网页风扇开关），无论 Init 成败都可安全调用
 
     // ==================== 7. SPI TFT + 触摸 ====================
     static SpitftTouchDisplay display;
     static DisplayContext dctx;
     dctx.config   = c.config;
     dctx.registry = c.registry;
-    dctx.ble      = c.ble;
     dctx.hw       = &hw;
 
     // 从板型引脚定义组装 SPI TFT 引脚结构

@@ -55,6 +55,11 @@ public:
     float SeaLevelHpa() const { return sea_level_hpa_; }
     esp_err_t SetSeaLevelHpa(float hpa);
 
+    // ---- WiFi STA 配网凭据（wifi_portal 网页写入；空 = 未配置）----
+    const std::string& WifiSsid() const { return wifi_ssid_; }
+    const std::string& WifiPass() const { return wifi_pass_; }
+    esp_err_t SetWifi(const std::string& ssid, const std::string& pass);
+
     // 重新从 NVS 加载全部配置
     esp_err_t Load();
 
@@ -73,6 +78,8 @@ private:
     std::string hub_id_;
     bool power_save_ = false;
     float sea_level_hpa_ = 1013.25f;
+    std::string wifi_ssid_;
+    std::string wifi_pass_;
 };
 
 } // namespace esp32node

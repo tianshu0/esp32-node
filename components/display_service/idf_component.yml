@@ -2,3 +2,4 @@ dependencies:
   idf: ">=5.0"
   lvgl/lvgl: "^9.2.0"
   espressif/esp_lvgl_port: "^2.1.0"
+  atanisoft/esp_lcd_touch_xpt2046: "~1.0.6"

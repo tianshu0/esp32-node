@@ -5,8 +5,9 @@
 //   - XPT2046 SPI 电阻式触摸（独立 SPI3_HOST，4 线不与 LCD 共享）
 //   - PSRAM 可存整屏双缓冲，刷新流畅
 //   - 触摸输入通过 lv_indev 注册到 LVGL（LVGL 9 新 API）
-//   - 内置多页面 UI：Dashboard（仪表板）/ Automation（规则）/ Settings（设置）
-//   - 风扇状态实时显示
+//   - 单屏极简 UI：湿度显示 + 一键启停风扇大按钮
+//     （自动化规则由 App 经 MQTT 下发，屏幕上不做规则/设置入口）
+//   - 按钮外观每秒与 FanControl 实际状态同步，规则/MQTT 改动能自动反映
 //
 // 用法（板型装配层）：
 //   display.Configure(tft_pins, &fan);  // 先放硬件参数
@@ -20,6 +21,14 @@
 #include "esp_err.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
+#if CONFIG_NODE_TOUCH_XPT2046
+// esp_lcd_touch 1.x 头在 esp_lcd_touch/ 子目录，2.x 移到了 include 根
+#if __has_include("esp_lcd_touch.h")
+#include "esp_lcd_touch.h"
+#else
+#include "esp_lcd_touch/esp_lcd_touch.h"
+#endif
+#endif
 #include <lvgl.h>
 
 namespace esp32node {
@@ -76,8 +85,9 @@ private:
     esp_err_t InitLvgl();
     void BuildAllPages();
 
-    // LVGL 9 输入设备回调签名：(lv_indev_t*, lv_indev_data_t*)
-    static void IndevRead(lv_indev_t* indev, lv_indev_data_t* data);
+    // 风扇按钮：点击回调 + 按 FanControl 实际状态刷新外观（调用时须持 LVGL 锁）
+    static void FanBtnHandler(lv_event_t* e);
+    void UpdateFanButton();
 
     // ==================== 成员 ====================
     DisplayContext ctx_{};
@@ -89,20 +99,33 @@ private:
     esp_lcd_panel_io_handle_t lcd_io_ = nullptr;
     lv_disp_t* lv_disp_ = nullptr;
 
-    // LVGL 屏幕对象（多页）
-    lv_obj_t* scr_dashboard_  = nullptr;
-    lv_obj_t* scr_automation_ = nullptr;
-    lv_obj_t* scr_settings_   = nullptr;
+#if CONFIG_NODE_TOUCH_XPT2046
+    // XPT2046：标准 esp_lcd_touch 句柄（atanisoft 驱动）+ 其 SPI IO
+    esp_lcd_panel_io_handle_t touch_io_ = nullptr;
+    esp_lcd_touch_handle_t touch_handle_ = nullptr;
+#endif
 
-    // Dashboard 实时数据标签
-    lv_obj_t* lbl_temp_value_ = nullptr;
-    lv_obj_t* lbl_humi_value_ = nullptr;
+    // LVGL 屏幕对象（单屏，参考图风格）
+    lv_obj_t* scr_main_ = nullptr;
 
-    // 触摸最后有效点：抬起时必须继续上报，不能给 (-1,-1)，
-    // 否则 LVGL 把点击判为超距滑动而取消 CLICK
-    int16_t last_touch_x_ = 0;
-    int16_t last_touch_y_ = 0;
-    bool    touch_has_point_ = false;
+    // ===== WiFi/时间状态栏（顶部横条 Y=0~42） =====
+    lv_obj_t* lbl_conn_      = nullptr;  // "已连接"/"未连接" 状态文字
+    lv_obj_t* lbl_wifi_st_  = nullptr;  // STA IP（如 192.168.1.5）
+    lv_obj_t* lbl_time_     = nullptr;  // "--:--" 占位时间
+    lv_obj_t* lbl_date_     = nullptr;  // "YYYY-MM-DD 周X"
+
+    // ===== 湿度卡（Y=86, H=87） =====
+    lv_obj_t* lbl_humi_value_  = nullptr;  // "62" 大字（Montserrat 44）
+    lv_obj_t* arc_humi_        = nullptr;  // 右侧弧形进度仪表
+    lv_obj_t* lbl_arc_pct_     = nullptr;  // 弧内百分比文字
+    lv_obj_t* lbl_humi_status_ = nullptr;  // "正常"/"偏高" tag 内文字
+
+    // ===== 底部双控件（Y=182, H=116） =====
+    lv_obj_t* btn_fan_           = nullptr;  // 左：风扇开关（可点击，整个卡片可触摸）
+    lv_obj_t* lbl_fan_switch_    = nullptr;  // 按钮内标题 "风扇开关"
+    lv_obj_t* lbl_fan_switch_st_ = nullptr;  // 按钮内状态 "已开启"/"已关闭"
+    lv_obj_t* fan_state_card_    = nullptr;  // 右：风扇状态（只读深蓝灰卡）
+    lv_obj_t* lbl_fan_state_st_  = nullptr;  // 状态卡内 "运行中"/"已停止"
 
     // 周期刷新任务（每秒更新 Dashboard 数据）
     TaskHandle_t task_ = nullptr;

@@ -22,12 +22,10 @@ if(CONFIG_NODE_DISPLAY_ILI9341_240X320)
     list(APPEND SRCS
         "esp_lcd_ili9341.c"
         "SpitftTouchDisplay.cpp"
+        "fonts/lv_font_zh14.c"
         "fonts/lv_font_zh16.c"
         "fonts/lv_font_zh24.c"
     )
-    if(CONFIG_NODE_TOUCH_XPT2046)
-        list(APPEND SRCS "xpt2046.cpp")
-    endif()
 endif()
 
 idf_component_register(
@@ -41,8 +39,11 @@ idf_component_register(
         hardware_context
         fan_control
         esp_lcd
+        esp_lcd_touch
+        esp_lcd_touch_xpt2046
         driver
         esp_common
+        esp_netif
         log
         lvgl
     PRIV_REQUIRES

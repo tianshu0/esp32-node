@@ -30,6 +30,7 @@ set(BASE_REQUIRES
     display_service
     fan_control
     automation
+    wifi_portal
     esp_event
     log
     bt

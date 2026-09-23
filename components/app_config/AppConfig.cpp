@@ -19,6 +19,8 @@ static constexpr const char* kKeyInterval   = "interval";
 static constexpr const char* kKeyHubId      = "hub_id";
 static constexpr const char* kKeyPowerSave  = "pwr_save";
 static constexpr const char* kKeySeaLevel   = "sea_level";
+static constexpr const char* kKeyWifiSsid   = "wifi_ssid";
+static constexpr const char* kKeyWifiPass   = "wifi_pass";
 
 AppConfig::~AppConfig()
 {
@@ -62,6 +64,8 @@ esp_err_t AppConfig::Load()
 
     node_id_ = ReadString(handle_, kKeyNodeId, "");
     hub_id_  = ReadString(handle_, kKeyHubId, "");
+    wifi_ssid_ = ReadString(handle_, kKeyWifiSsid, "");
+    wifi_pass_ = ReadString(handle_, kKeyWifiPass, "");
 
     uint8_t sda = static_cast<uint8_t>(kDefaultSda);
     if (nvs_get_u8(handle_, kKeyI2cSda, &sda) != ESP_OK) {
@@ -152,6 +156,26 @@ esp_err_t AppConfig::SetNodeId(const std::string& id)
     esp_err_t err = WriteString(kKeyNodeId, id);
     if (err == ESP_OK) {
         node_id_ = id;
+    }
+    return err;
+}
+
+esp_err_t AppConfig::SetWifi(const std::string& ssid, const std::string& pass)
+{
+    if (!open_) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    // SSID 最长 32 字节，WPA2 密码最长 64 字节
+    if (ssid.empty() || ssid.size() > 32 || pass.size() > 64) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    esp_err_t err = WriteString(kKeyWifiSsid, ssid);
+    if (err == ESP_OK) {
+        err = WriteString(kKeyWifiPass, pass);
+    }
+    if (err == ESP_OK) {
+        wifi_ssid_ = ssid;
+        wifi_pass_ = pass;
     }
     return err;
 }
