@@ -108,24 +108,25 @@ private:
     // LVGL 屏幕对象（单屏，参考图风格）
     lv_obj_t* scr_main_ = nullptr;
 
-    // ===== WiFi/时间状态栏（顶部横条 Y=0~42） =====
-    lv_obj_t* lbl_conn_      = nullptr;  // "已连接"/"未连接" 状态文字
-    lv_obj_t* lbl_wifi_st_  = nullptr;  // STA IP（如 192.168.1.5）
-    lv_obj_t* lbl_time_     = nullptr;  // "--:--" 占位时间
-    lv_obj_t* lbl_date_     = nullptr;  // "YYYY-MM-DD 周X"
+    // ===== WiFi/时间状态栏 =====
+    lv_obj_t* lbl_conn_      = nullptr;  // "已连接"/"未连接"
+    lv_obj_t* dot_conn_      = nullptr;  // 状态指示圆点（V2）
+    lv_obj_t* lbl_wifi_st_  = nullptr;  // STA IP
+    lv_obj_t* lbl_time_     = nullptr;  // "--:--"
+    lv_obj_t* lbl_date_     = nullptr;  // 日期（V1 用，V2 不用）
 
-    // ===== 湿度卡（Y=86, H=87） =====
-    lv_obj_t* lbl_humi_value_  = nullptr;  // "62" 大字（Montserrat 44）
-    lv_obj_t* arc_humi_        = nullptr;  // 右侧弧形进度仪表
-    lv_obj_t* lbl_arc_pct_     = nullptr;  // 弧内百分比文字
-    lv_obj_t* lbl_humi_status_ = nullptr;  // "正常"/"偏高" tag 内文字
+    // ===== 湿度/风扇状态 =====
+    lv_obj_t* lbl_humi_value_  = nullptr;
+    lv_obj_t* arc_humi_        = nullptr;
+    lv_obj_t* lbl_arc_pct_     = nullptr;
+    lv_obj_t* lbl_humi_status_ = nullptr;
 
-    // ===== 底部双控件（Y=182, H=116） =====
-    lv_obj_t* btn_fan_           = nullptr;  // 左：风扇开关（可点击，整个卡片可触摸）
-    lv_obj_t* lbl_fan_switch_    = nullptr;  // 按钮内标题 "风扇开关"
-    lv_obj_t* lbl_fan_switch_st_ = nullptr;  // 按钮内状态 "已开启"/"已关闭"
-    lv_obj_t* fan_state_card_    = nullptr;  // 右：风扇状态（只读深蓝灰卡）
-    lv_obj_t* lbl_fan_state_st_  = nullptr;  // 状态卡内 "运行中"/"已停止"
+    // ===== 底部按钮/状态 =====
+    lv_obj_t* btn_fan_           = nullptr;
+    lv_obj_t* lbl_fan_switch_    = nullptr;
+    lv_obj_t* lbl_fan_switch_st_ = nullptr;
+    lv_obj_t* fan_state_card_    = nullptr;
+    lv_obj_t* lbl_fan_state_st_  = nullptr;
 
     // 周期刷新任务（每秒更新 Dashboard 数据）
     TaskHandle_t task_ = nullptr;

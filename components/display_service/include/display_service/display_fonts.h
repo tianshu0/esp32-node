@@ -21,6 +21,9 @@
 extern "C" {
 #endif
 
+LV_FONT_DECLARE(lv_font_zh8);
+LV_FONT_DECLARE(lv_font_zh10);
+LV_FONT_DECLARE(lv_font_zh12);
 LV_FONT_DECLARE(lv_font_zh14);
 LV_FONT_DECLARE(lv_font_zh16);
 LV_FONT_DECLARE(lv_font_zh24);

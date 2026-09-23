@@ -4,13 +4,16 @@ const fs = require('fs');
 const path = require('path');
 
 // Hardcode symbols as a JS string (no file I/O encoding risk)
-const SYMS = '环境监测节点风扇控制湿度正常已开启已关闭运行中已停止偏高状态开关自动规则手动设置模式等待连接蓝牙网络时间日期周日快笼子温度启闭高湿正连网周期设待启关闭运行中停止偏蓝牙等环测节温自规控备模未一二三四五六智能通风守护健康·在线配';
+const SYMS = '环境监测节点风扇控制湿度正常已开启已关闭运行中已停止偏高状态开关自动规则手动设置模式等待连接蓝牙网络时间日期周日快笼子温度启闭高湿正连网周期设待启关闭运行中停止偏蓝牙等环测节温自规控备模未一二三四五六智能通风守护健康·在线配点击';
 
 console.log('SYMS.length =', SYMS.length);
 console.log('feng cp: 0x' + '风'.codePointAt(0).toString(16));
 console.log('shan cp: 0x' + '扇'.codePointAt(0).toString(16));
 
 const runs = [
+    { size: 8,  out: 'fonts/lv_font_zh8.c',  name: 'lv_font_zh8'  },
+    { size: 10, out: 'fonts/lv_font_zh10.c', name: 'lv_font_zh10' },
+    { size: 12, out: 'fonts/lv_font_zh12.c', name: 'lv_font_zh12' },
     { size: 14, out: 'fonts/lv_font_zh14.c', name: 'lv_font_zh14' },
     { size: 16, out: 'fonts/lv_font_zh16.c', name: 'lv_font_zh16' },
     { size: 24, out: 'fonts/lv_font_zh24.c', name: 'lv_font_zh24' },

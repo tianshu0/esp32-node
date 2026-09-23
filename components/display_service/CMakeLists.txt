@@ -22,6 +22,9 @@ if(CONFIG_NODE_DISPLAY_ILI9341_240X320)
     list(APPEND SRCS
         "esp_lcd_ili9341.c"
         "SpitftTouchDisplay.cpp"
+        "fonts/lv_font_zh8.c"
+        "fonts/lv_font_zh10.c"
+        "fonts/lv_font_zh12.c"
         "fonts/lv_font_zh14.c"
         "fonts/lv_font_zh16.c"
         "fonts/lv_font_zh24.c"
