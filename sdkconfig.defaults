@@ -1,68 +1,22 @@
-# esp32-node 默认配置（目标芯片 ESP32-C3 / 4MB Flash / NimBLE Peripheral）
+# esp32-node 通用默认配置（所有项目共享的最小集合）
 # =====================================================================
-# 切换到 ESP32-S3 N16R8 + SPI TFT 板型的步骤（二选一）：
+# 目标芯片、蓝牙、分区表、Flash 大小、PSRAM、LVGL 内存池/字号、低功耗等
+# 项目间差异配置不放本文件，由各项目 main/projects/<name>/config.json
+# 的 builds.sdkconfig_append 提供，构建时经 release.py 生成为 fragment 拼接到本文件之后。
 #
-# 方案 A：手动替换默认配置文件（推荐，避免 set-target 的副作用）
-#   copy sdkconfig.defaults.s3_spi_tft sdkconfig.defaults
-#   idf.py fullclean build
+# 推荐构建方式（在已初始化的 ESP-IDF shell 中，仓库根目录）：
+#   python release.py --list                 # 列出全部项目
+#   python release.py <项目>                 # 配置 + 编译
+#   python release.py <项目> --flash -p COM7 # 编译 + 烧录
+#   python release.py <项目> --flash --monitor -p COM7
 #
-# 方案 B：命令行切换 + menuconfig
-#   idf.py set-target esp32s3
-#   idf.py menuconfig
-#     → Node hardware profile → Board profile → 选 S3 SPI TFT
-#     → Sensors → 勾选 SHT3X / BMP180 / VOC21
-#     → Display → ILI9341 2.4" SPI TFT
-#     → Automation → 勾选 XPT2046 / Fan PWM / Automation Rules
+# 手动方式（不经过 release.py）：
+#   idf.py set-target <esp32c3|esp32s3>
+#   idf.py menuconfig   # -> Node project -> Project profile -> 选择项目
 #   idf.py build
-#
+#   注意：项目专属的 sdkconfig 项（BT/LVGL/PSRAM 等）需自行参照对应 config.json 勾选。
 # =====================================================================
-# 固定目标芯片，避免换机器构建时误用 esp32 默认目标
-CONFIG_IDF_TARGET="esp32c3"
 
-# 增大主任务栈，容纳 C++ 组件初始化（NimBLE + 组件装配）
+# 主任务栈：容纳 C++ 组件初始化（NimBLE + 组件装配）
+# S3 项目在其 config.json 中覆盖为 10240
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
-
-# 自定义分区表（4MB 方案，见 partitions.csv）
-CONFIG_PARTITION_TABLE_CUSTOM=y
-CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
-CONFIG_PARTITION_TABLE_OFFSET=0x8000
-
-# Flash 大小：4MB
-CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-
-# BLE：使用 NimBLE 协议栈，本设备只做 Peripheral（等 hub 主动连接）
-CONFIG_BT_ENABLED=y
-CONFIG_BT_NIMBLE_ENABLED=y
-CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=y
-CONFIG_BT_NIMBLE_ROLE_BROADCASTER=y
-CONFIG_BT_NIMBLE_ROLE_CENTRAL=n
-CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
-# 单连接：一个节点同时只服务一个 hub
-CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
-# ATT MTU 提到 512：握手 hello_ack 带完整能力清单（types+各传感器 format，
-# 约 290 字节），默认 256 时单包 payload 上限 253，NimBLE 会静默截断 JSON。
-# 与 hub 协商取双方最小值，两边必须同时 >=512。
-CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=512
-
-# 低功耗：电源管理 + tickless idle（运行时由 app_config.power_save 开关控制，
-# 默认关闭，仅电池供电场景启用）
-CONFIG_PM_ENABLE=y
-CONFIG_FREERTOS_USE_TICKLESS_IDLE=y
-
-# ============ 显示（默认 SSD1315 128x64 单色 OLED，LVGL 9 + esp_lvgl_port）============
-# 屏/传感器/板型为编译期选择，见 main/Kconfig.projbuild（idf.py menuconfig
-# -> Node hardware profile）。选 NODE_DISPLAY_NONE 时显示源文件不编入（LVGL 仍构建）。
-# LVGL 用内置内存池，lv_init() 一次性向堆申请 LV_MEM_SIZE 字节。
-# 节点 UI 只有一屏约 10 个对象，16KB 足够（默认 64KB 对 C3 的 188KB 堆太大）。
-# LVGL 9.6 起 LV_MEM_SIZE_KILOBYTES 已弃用，改用字节单位的 LV_MEM_SIZE。
-CONFIG_LV_MEM_SIZE=16384
-
-# 布局用到的字号：页眉 10，标签 12，数值 14（14 为 LVGL 默认字体，显式固定）
-CONFIG_LV_FONT_MONTSERRAT_10=y
-CONFIG_LV_FONT_MONTSERRAT_12=y
-CONFIG_LV_FONT_MONTSERRAT_14=y
-
-# 注：板型 / 传感器 / 显示屏（NODE_BOARD / NODE_SENSOR_* / NODE_DISPLAY）属于
-# 项目自定义硬件选型，定义在 main/Kconfig.projbuild，不放本文件；
-# 通过 idf.py menuconfig -> Node hardware profile 选择，结果保存在自动生成的
-# sdkconfig（已 gitignore）。全新构建时的默认值由 Kconfig.projbuild 中的 default 决定。

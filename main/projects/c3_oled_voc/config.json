@@ -1,0 +1,35 @@
+{
+    "type": "c3-oled-voc",
+    "target": "esp32c3",
+    "description": "ESP32-C3 + SSD1315 OLED + 21VOC 空气质量(TVOC/CH2O/eCO2/温湿度)节点 (NimBLE Peripheral)",
+    "builds": [
+        {
+            "name": "c3-oled-voc",
+            "sdkconfig_append": [
+                "CONFIG_NODE_PROJECT_C3_OLED_VOC=y",
+
+                "CONFIG_PARTITION_TABLE_CUSTOM=y",
+                "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\"",
+                "CONFIG_PARTITION_TABLE_OFFSET=0x8000",
+                "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y",
+
+                "CONFIG_BT_ENABLED=y",
+                "CONFIG_BT_NIMBLE_ENABLED=y",
+                "CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=y",
+                "CONFIG_BT_NIMBLE_ROLE_BROADCASTER=y",
+                "CONFIG_BT_NIMBLE_ROLE_CENTRAL=n",
+                "CONFIG_BT_NIMBLE_ROLE_OBSERVER=n",
+                "CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1",
+                "CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=512",
+
+                "CONFIG_PM_ENABLE=y",
+                "CONFIG_FREERTOS_USE_TICKLESS_IDLE=y",
+
+                "CONFIG_LV_MEM_SIZE=16384",
+                "CONFIG_LV_FONT_MONTSERRAT_10=y",
+                "CONFIG_LV_FONT_MONTSERRAT_12=y",
+                "CONFIG_LV_FONT_MONTSERRAT_14=y"
+            ]
+        }
+    ]
+}

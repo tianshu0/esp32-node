@@ -1,0 +1,8 @@
+# ESP32-S3 16MB Flash 分区表（s3_tft_fan 项目）
+# 总空间 0x1000000 = 16MB
+# 本工程未实现 OTA，故只留单一 factory app；
+# TFT 触摸 UI + 多套中文字体子集，固件约 1.5MB，给 4MB app 留足余量。
+# Name,   Type, SubType, Offset,   Size, Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xf000,   0x1000,
+factory,  app,  factory, 0x20000,  0x400000,

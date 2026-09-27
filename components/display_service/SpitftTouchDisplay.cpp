@@ -693,11 +693,13 @@ void SpitftTouchDisplay::BuildAllPages()
     lv_obj_align(lbl_humi_value_, LV_ALIGN_TOP_LEFT, 35, 25);
 
     // "%" (IconFont 20, 紧贴数字)
-    lv_obj_t* humi_pct = lv_label_create(data_card);
-    lv_label_set_text(humi_pct, "%");
-    lv_obj_set_style_text_color(humi_pct, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_text_font(humi_pct, IconFont(), 0);
-    lv_obj_align_to(humi_pct, lbl_humi_value_, LV_ALIGN_OUT_RIGHT_MID, 2, 4);
+    // 注意：LVGL9 的 lv_obj_align_to 是一次性绝对定位，数字文本从 "--"
+    // 变为 "73"/"100" 后宽度变化不会带动 "%"，故保存指针，每次刷新后重新对齐。
+    lbl_humi_pct_ = lv_label_create(data_card);
+    lv_label_set_text(lbl_humi_pct_, "%");
+    lv_obj_set_style_text_color(lbl_humi_pct_, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_font(lbl_humi_pct_, IconFont(), 0);
+    lv_obj_align_to(lbl_humi_pct_, lbl_humi_value_, LV_ALIGN_OUT_RIGHT_MID, 2, 4);
 
     // 状态胶囊 (card-rel 30,67)
     MakeStatusTag(data_card, "正常", 0x20E3AA, &lbl_humi_status_);
@@ -893,6 +895,11 @@ void SpitftTouchDisplay::RefreshTask(void* arg)
                 if (have_humi) {
                     snprintf(buf, sizeof(buf), "%.0f", humi);
                     lv_label_set_text(self->lbl_humi_value_, buf);
+                    // 数字宽度随位数变化（"73"→"100"），"%" 必须重新贴到右缘
+                    if (self->lbl_humi_pct_) {
+                        lv_obj_align_to(self->lbl_humi_pct_, self->lbl_humi_value_,
+                                        LV_ALIGN_OUT_RIGHT_MID, 2, 4);
+                    }
                     int pct = std::clamp(static_cast<int>(humi + 0.5f), 0, 100);
                     if (self->arc_humi_)    lv_arc_set_value(self->arc_humi_, pct);
                     if (self->lbl_arc_pct_) {
@@ -904,6 +911,11 @@ void SpitftTouchDisplay::RefreshTask(void* arg)
                     }
                 } else {
                     lv_label_set_text(self->lbl_humi_value_, "--");
+                    // 数字宽度变化后（如 "100"→"--"）重新对齐 "%"，避免重叠/错位
+                    if (self->lbl_humi_pct_) {
+                        lv_obj_align_to(self->lbl_humi_pct_, self->lbl_humi_value_,
+                                        LV_ALIGN_OUT_RIGHT_MID, 2, 4);
+                    }
                     if (self->arc_humi_)    lv_arc_set_value(self->arc_humi_, 0);
                     if (self->lbl_arc_pct_) lv_label_set_text(self->lbl_arc_pct_, "--%");
                     if (self->lbl_humi_status_)

@@ -117,6 +117,7 @@ private:
 
     // ===== 湿度/风扇状态 =====
     lv_obj_t* lbl_humi_value_  = nullptr;
+    lv_obj_t* lbl_humi_pct_    = nullptr;  // 数字右侧的 "%"（V2，文本变宽后需重新对齐）
     lv_obj_t* arc_humi_        = nullptr;
     lv_obj_t* lbl_arc_pct_     = nullptr;
     lv_obj_t* lbl_humi_status_ = nullptr;

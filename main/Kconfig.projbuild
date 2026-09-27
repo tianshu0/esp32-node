@@ -1,65 +1,78 @@
-# 节点硬件配置（编译期选择，对标 esp32-xiaozhi 的板型选择机制）
+# 节点项目配置（编译期「项目即宏」选择，对标 esp32-xiaozhi 的板型选择机制）
 #
-# 三个正交维度：
-#   NODE_BOARD    板型：引脚映射与整体装配（main/boards/<name>/）
-#   NODE_SENSOR_* 挂哪些传感器驱动（多选，未选不编入固件，省 flash/RAM）
-#   NODE_DISPLAY  用什么显示屏（单选；未接的屏运行时探测失败会自动禁用）
+# 在本菜单选一个项目（或在 ESP-IDF shell 执行 python release.py <项目> 一键构建）：
+# 项目宏通过 select 自动锁定显示屏 / 传感器 / 触摸等内部开关，组件层无需感知。
 #
-# 新增部件的步骤见 README「硬件扩展」。
+# 每个项目对应 main/projects/<name>/ 目录：
+#   config.h    板级编译期常量（引脚/通道等，仅本项目 Board.cpp include）
+#   config.json 构建元数据（target 芯片 + sdkconfig 追加项，供 release.py 使用）
+#   Board.cpp   装配实现（本项目唯一知道具体硬件组合的文件）
+#
+# 新增项目步骤：
+#   1. 新建 main/projects/<name>/{config.h,config.json,Board.cpp}
+#   2. 在下方 NODE_PROJECT choice 加一个 config，并用 select 锁定所需内部符号
+#   3. 在 main/CMakeLists.txt 加一个 elseif(CONFIG_NODE_PROJECT_<NAME>) 映射目录
 
-menu "Node hardware profile"
+menu "Node project"
 
-    choice NODE_BOARD
-        prompt "Board profile"
+    choice NODE_PROJECT
+        prompt "Project profile"
+        default NODE_PROJECT_S3_TFT_FAN
         help
-            选择目标板型。每个板型对应 main/boards/<name>/ 目录，
-            其中 Pins.hpp 定义引脚、Board.cpp 负责装配总线/传感器/显示屏。
-        # config NODE_BOARD_C3_I2C_OLED
-        #     bool "ESP32-C3 + I2C sensors + SSD1315 OLED (default)"
-        config NODE_BOARD_S3_SPI_TFT
-            bool "ESP32-S3 N16R8 + SPI TFT (ILI9341) + XPT2046 touch"
+            选择目标项目。项目决定芯片、显示屏、传感器与外设的全套组合，
+            对应 main/projects/<name>/ 目录。
+            也可在 ESP-IDF shell 中执行 python release.py <项目> 一键构建。
+
+        config NODE_PROJECT_C3_OLED_THP
+            bool "C3 OLED 温湿度气压节点 (SSD1315 + SHT3X + BMP180)"
+            select NODE_SENSOR_SHT3X
+            select NODE_SENSOR_BMP180
+            select NODE_DISPLAY_SSD1315
+
+        config NODE_PROJECT_C3_OLED_VOC
+            bool "C3 OLED 甲醛空气质量节点 (SSD1315 + 21VOC)"
+            select NODE_SENSOR_VOC21
+            select NODE_DISPLAY_SSD1315
+
+        config NODE_PROJECT_S3_TFT_FAN
+            bool "S3 TFT 风扇控制节点 (ILI9341 + XPT2046 + AHT20 + BMP280)"
+            select NODE_SENSOR_AHT20
+            select NODE_SENSOR_BMP280
+            select NODE_DISPLAY_ILI9341_240X320
+            select NODE_TOUCH_XPT2046
     endchoice
 
-    menu "Sensors"
-        config NODE_SENSOR_SHT3X
-            bool "SHT3X temperature/humidity sensor (I2C 0x44/0x45)"
-            default n
-        config NODE_SENSOR_BMP180
-            bool "BMP180 pressure sensor (I2C 0x77)"
-            default y
-        config NODE_SENSOR_VOC21
-            bool "21VOC 5-in-1 air quality module (UART 9600, TVOC/CH2O/eCO2/T/H)"
-            default n
-    endmenu
+    # ----------------------------------------------------------------------
+    # 内部开关：无 prompt，不在 menuconfig 显示，完全由所选项目的 select 锁定。
+    # 各组件 CMakeLists.txt 按这些符号条件编入源文件，源码中也可 #if 使用。
+    # 新增项目时只需在上方 choice 里 select 它们，不要给它们加 prompt。
+    # ----------------------------------------------------------------------
 
-    choice NODE_DISPLAY
-        prompt "Display"
-        help
-            选择显示驱动。"显示什么内容"由内容模板（Screen）决定，与驱动解耦。
-        # config NODE_DISPLAY_SSD1315
-        #     bool "SSD1315 0.96\" 128x64 monochrome I2C OLED"
-        # config NODE_DISPLAY_SSD1306_128X32
-        #     bool "SSD1306 0.91\" 128x32 monochrome I2C OLED"
-        config NODE_DISPLAY_ILI9341_240X320
-            bool "ILI9341 2.4\" 240x320 RGB SPI TFT"
-        config NODE_DISPLAY_NONE
-            bool "No display"
-    endchoice
+    config NODE_SENSOR_SHT3X
+        bool
 
-    menu "Automation & I/O"
-        config NODE_TOUCH_XPT2046
-            bool "XPT2046 resistive touch controller (SPI, shared with LCD)"
-            default y
-            depends on NODE_DISPLAY_ILI9341_240X320
+    config NODE_SENSOR_AHT20
+        bool
 
-        config NODE_FAN_PWM
-            bool "Enable 1-channel PWM fan control (LEDC, software or hardware)"
-            default n
+    config NODE_SENSOR_BMP180
+        bool
 
-        config NODE_AUTOMATION_RULES
-            bool "Enable automation rule engine (sensor threshold -> fan action)"
-            default n
-            depends on NODE_FAN_PWM
-    endmenu
+    config NODE_SENSOR_BMP280
+        bool
+
+    config NODE_SENSOR_VOC21
+        bool
+
+    config NODE_DISPLAY_SSD1315
+        bool
+
+    config NODE_DISPLAY_SSD1306_128X32
+        bool
+
+    config NODE_DISPLAY_ILI9341_240X320
+        bool
+
+    config NODE_TOUCH_XPT2046
+        bool
 
 endmenu

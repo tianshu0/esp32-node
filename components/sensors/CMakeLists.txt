@@ -5,8 +5,16 @@ if(CONFIG_NODE_SENSOR_SHT3X)
     list(APPEND SRCS "Sht3xSensor.cpp")
 endif()
 
+if(CONFIG_NODE_SENSOR_AHT20)
+    list(APPEND SRCS "Aht20Sensor.cpp")
+endif()
+
 if(CONFIG_NODE_SENSOR_BMP180)
     list(APPEND SRCS "Bmp180Sensor.cpp")
+endif()
+
+if(CONFIG_NODE_SENSOR_BMP280)
+    list(APPEND SRCS "Bmp280Sensor.cpp")
 endif()
 
 if(CONFIG_NODE_SENSOR_VOC21)
