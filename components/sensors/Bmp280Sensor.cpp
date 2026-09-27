@@ -39,18 +39,36 @@ esp_err_t Bmp280Sensor::Start(HardwareContext& hw, AppConfig& config,
     if (hw.i2c == nullptr) {
         return ESP_ERR_INVALID_ARG;
     }
-    esp_err_t err = hw.i2c->AddDevice(kAddr, &dev_);
+
+    // 地址自识别：依次 Probe 0x76（SDO 接地）/ 0x77（SDO 接高）。
+    // AHT20+BMP280 二合一模块不同批次上拉接法不一，固定 0x76 会漏检。
+    const uint8_t candidates[] = {kAddrPrimary, kAddrSecondary};
+    for (uint8_t a : candidates) {
+        if (hw.i2c->Probe(a)) {
+            addr_ = a;
+            break;
+        }
+    }
+    if (addr_ == 0) {
+        ESP_LOGE(TAG, "no device answering at 0x%02X or 0x%02X",
+                 kAddrPrimary, kAddrSecondary);
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    esp_err_t err = hw.i2c->AddDevice(addr_, &dev_);
     if (err != ESP_OK) {
         return err;
     }
 
     uint8_t chip = 0;
     if (!ReadRegs(kRegChipId, &chip, 1)) {
-        ESP_LOGE(TAG, "read chip id failed");
+        ESP_LOGE(TAG, "read chip id failed at 0x%02X", addr_);
         return ESP_FAIL;
     }
     if (chip != kChipId) {
-        ESP_LOGE(TAG, "unexpected chip id 0x%02X (expect 0x%02X)", chip, kChipId);
+        // 打印实际 ID 便于辨别贴牌芯片（BME280=0x60, BMP180=0x55 等）
+        ESP_LOGE(TAG, "unexpected chip id 0x%02X at 0x%02X (expect BMP280 0x%02X)",
+                 chip, addr_, kChipId);
         return ESP_ERR_NOT_FOUND;
     }
 
@@ -91,7 +109,7 @@ esp_err_t Bmp280Sensor::Start(HardwareContext& hw, AppConfig& config,
                       kFields, sizeof(kFields) / sizeof(kFields[0]),
                       &Bmp280Sensor::ReadThunk, this);
 
-    ESP_LOGI(TAG, "bmp280 ready at 0x%02X (t1=%u p1=%u)", kAddr, dig_t1_, dig_p1_);
+    ESP_LOGI(TAG, "bmp280 ready at 0x%02X (t1=%u p1=%u)", addr_, dig_t1_, dig_p1_);
     return ESP_OK;
 }
 

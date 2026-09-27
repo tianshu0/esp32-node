@@ -3,7 +3,7 @@
 //
 // 硬件连接见同目录 config.h；本文件负责：
 //   1. SPI2_HOST 总线（LCD + 触摸共享）
-//   2. I2C 总线（AHT20 0x38 / BMP280 0x76 共用）
+//   2. I2C 总线（AHT20 0x38 / BMP280 0x76|0x77 共用）
 //   3. LEDC PWM 风扇控制
 //   4. SPI TFT 显示驱动（ILI9341 + XPT2046 触摸 + LVGL 多页 UI）
 //   5. 自动化规则引擎（阈值触发 + 定时时长 + 迟滞保护）
@@ -84,7 +84,7 @@ void BoardAssemble(NodeContext& c)
 
     static Bmp280Sensor bmp280;
     if (bmp280.Start(hw, *c.config, *c.registry) != ESP_OK) {
-        ESP_LOGW(TAG, "bmp280 disabled, check wiring (addr 0x76)");
+        ESP_LOGW(TAG, "bmp280 disabled, check wiring (addr 0x76/0x77)");
     }
 
     // ==================== 5. PWM 风扇 ====================

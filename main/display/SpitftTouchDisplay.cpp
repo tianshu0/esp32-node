@@ -85,57 +85,10 @@ esp_err_t SpitftTouchDisplay::Start(const DisplayContext& ctx)
 
 // ==================== LCD ====================
 
-// ILI9341 上电初始化序列：经官方 espressif/esp_lcd_ili9341 组件的
-// vendor_config.init_cmds 注入。下列参数是换库前自实现驱动中实测可用的
-// Adafruit 社区序列（2.4" 240x320 SPI TFT 模组），原样保留以确保电源/伽马/
-// VCOM 寄存器配置与换库前字节一致；官方默认序列参数不同，不直接采用。
-namespace {
-const uint8_t kIliCmd0CF[] = {0x00, 0xD9, 0x30};
-const uint8_t kIliCmd0ED[] = {0x64, 0x03, 0x12, 0x81};
-const uint8_t kIliCmd0E8[] = {0x85, 0x10, 0x78};
-const uint8_t kIliCmd0CB[] = {0x39, 0x2C, 0x00, 0x34, 0x02};
-const uint8_t kIliCmd0F7[] = {0x20};
-const uint8_t kIliCmd0EA[] = {0x00, 0x00};
-const uint8_t kIliCmd0C0[] = {0x23};
-const uint8_t kIliCmd0C1[] = {0x10};
-const uint8_t kIliCmd0C5[] = {0x3E, 0x28};
-const uint8_t kIliCmd0C7[] = {0x86};
-const uint8_t kIliCmd0B1[] = {0x00, 0x18};
-const uint8_t kIliCmd0B6[] = {0x08, 0x82, 0x27};
-const uint8_t kIliCmd0F2[] = {0x00};
-const uint8_t kIliCmd026[] = {0x01};
-const uint8_t kIliCmd0E0[] = {0x0F, 0x31, 0x2B, 0x0C, 0x0E, 0x08, 0x4E, 0xF1,
-                              0x37, 0x07, 0x10, 0x03, 0x0E, 0x09, 0x00};
-const uint8_t kIliCmd0E1[] = {0x00, 0x0E, 0x14, 0x03, 0x11, 0x07, 0x31, 0xC1,
-                              0x48, 0x08, 0x0F, 0x0C, 0x31, 0x36, 0x0F};
-
-const ili9341_lcd_init_cmd_t kIli9341InitCmds[] = {
-    {0x01, nullptr, 0, 10},   // SWRESET
-    {0xCF, kIliCmd0CF, 3, 0},
-    {0xED, kIliCmd0ED, 4, 0},
-    {0xE8, kIliCmd0E8, 3, 0},
-    {0xCB, kIliCmd0CB, 5, 0},
-    {0xF7, kIliCmd0F7, 1, 0},
-    {0xEA, kIliCmd0EA, 2, 0},
-    {0xC0, kIliCmd0C0, 1, 0},  // POWER1
-    {0xC1, kIliCmd0C1, 1, 0},  // POWER2
-    {0xC5, kIliCmd0C5, 2, 0},  // VCOM1/VCOM2
-    {0xC7, kIliCmd0C7, 1, 0},  // VCOM
-    {0xB1, kIliCmd0B1, 2, 0},  // FRMCTR1
-    {0xB6, kIliCmd0B6, 3, 0},  // DISCTR
-    {0xF2, kIliCmd0F2, 1, 0},  // 3G gamma disable
-    {0x26, kIliCmd026, 1, 0},  // Gamma curve 3
-    {0xE0, kIliCmd0E0, 15, 0}, // Positive gamma
-    {0xE1, kIliCmd0E1, 15, 0}, // Negative gamma
-    {0x11, nullptr, 0, 120},   // SLPOUT
-    {0x29, nullptr, 0, 0},     // DISPON
-};
-
-ili9341_vendor_config_t kIli9341VendorCfg = {
-    kIli9341InitCmds,
-    sizeof(kIli9341InitCmds) / sizeof(kIli9341InitCmds[0]),
-};
-} // namespace
+// 初始化序列使用官方 espressif/esp_lcd_ili9341 组件内置默认表
+// （vendor_config 留空，见 panel_init 内 vendor_specific_init_default）。
+// 上电复位由 esp_lcd_panel_reset() 完成，退睡眠/显示开分别由官方 init()
+// 与下方 esp_lcd_panel_disp_on_off() 负责。
 
 esp_err_t SpitftTouchDisplay::InitLcd()
 {
@@ -156,7 +109,6 @@ esp_err_t SpitftTouchDisplay::InitLcd()
     panel_cfg.reset_gpio_num = pins_.lcd_rst;
     panel_cfg.rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR;
     panel_cfg.bits_per_pixel = 16;
-    panel_cfg.vendor_config = &kIli9341VendorCfg;
 
     err = esp_lcd_new_panel_ili9341(lcd_io_, &panel_cfg, &lcd_panel_);
     if (err != ESP_OK) { ESP_LOGE(TAG, "esp_lcd_new_panel_ili9341 failed: %s", esp_err_to_name(err)); return err; }

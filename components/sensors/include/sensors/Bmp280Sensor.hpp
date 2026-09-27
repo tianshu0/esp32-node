@@ -1,6 +1,7 @@
 // BMP280 气压/温度传感器驱动（I2C）—— SensorDevice 插件实现
 //
-// - 7 位地址：0x76（SDO 接地，多数模块默认）
+// - 7 位地址：0x76（SDO 接地，多数模块默认）或 0x77（SDO 接高），
+//   Start() 会依次 Probe 两个地址自动识别
 // - 芯片 ID：寄存器 0xD0 读回 0x58
 // - 校准系数：0x88 起 24 字节（T1~T3 3 个 + P1~P9 9 个，共 12 个 16bit 系数）
 // - 单次测量：ctrl_meas 写 0x25（T×1 P×1 Forced），约 4ms，回读 6 字节
@@ -16,7 +17,8 @@ namespace esp32node {
 
 class Bmp280Sensor : public SensorDevice {
 public:
-    static constexpr uint8_t kAddr = 0x76;
+    static constexpr uint8_t kAddrPrimary   = 0x76;  // SDO 接地
+    static constexpr uint8_t kAddrSecondary = 0x77;  // SDO 接高
 
     const char* Type() const override { return "pressure"; }
     esp_err_t Start(HardwareContext& hw, AppConfig& config,
@@ -36,6 +38,7 @@ private:
     void Compute(int32_t adc_t, int32_t adc_p, float* out_t, float* out_p) const;
 
     i2c_master_dev_handle_t dev_ = nullptr;
+    uint8_t addr_ = 0;   // 实际探测到的地址（0x76 / 0x77）
     float sea_level_hpa_ = 1013.25f;
 
     uint16_t dig_t1_ = 0;   // T1 无符号（datasheet），T2/T3 有符号
