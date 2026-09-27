@@ -103,7 +103,7 @@ setInterval(st,3000);st();
 
 // ==================== 工具函数 ====================
 
-// 从注册表读数 JSON 里抠浮点值（与 display_service 相同的轻量解析）
+// 从注册表读数 JSON 里抠浮点值（与 main/display 相同的轻量解析）
 static bool ExtractJsonFloat(const char* json, const char* key, float* out)
 {
     char pattern[24];

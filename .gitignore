@@ -16,3 +16,6 @@ sdkconfig.defaults.old
 *.swp
 .DS_Store
 build_*
+
+# Node.js 工具依赖（字体生成脚本用，npx/npm install 可恢复）
+node_modules/

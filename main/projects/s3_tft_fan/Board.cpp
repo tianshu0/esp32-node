@@ -1,4 +1,4 @@
-// 项目装配：ESP32-S3 N16R8 + SPI TFT (ILI9341) + XPT2046 触摸
+﻿// 项目装配：ESP32-S3 N16R8 + SPI TFT (ILI9341) + XPT2046 触摸
 //           + AHT20/BMP280 二合一模块 + PWM 风扇 + 自动化规则
 //
 // 硬件连接见同目录 config.h；本文件负责：
@@ -26,7 +26,7 @@
 
 #include "fan_control/FanControl.hpp"
 #include "automation/Automation.hpp"
-#include "display_service/SpitftTouchDisplay.hpp"
+#include "display/SpitftTouchDisplay.hpp"
 
 namespace esp32node {
 

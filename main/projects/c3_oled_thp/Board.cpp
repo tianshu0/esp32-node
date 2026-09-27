@@ -1,4 +1,4 @@
-// 项目装配：ESP32-C3 + SSD1315 128x64 OLED + SHT3X 温湿度 + BMP180 气压
+﻿// 项目装配：ESP32-C3 + SSD1315 128x64 OLED + SHT3X 温湿度 + BMP180 气压
 //
 // 本文件是全项目唯一知道具体硬件组合的文件：
 //   - 总线/传感器/屏的具体类名只出现在这里，main.cpp 与核心组件保持硬件无关
@@ -16,9 +16,9 @@
 #include "sensors/Sht3xSensor.hpp"
 #include "sensors/Bmp180Sensor.hpp"
 
-#include "display_service/DisplayContext.hpp"
-#include "display_service/Ssd1315Display.hpp"
-#include "display_service/DashboardScreen.hpp"
+#include "display/DisplayContext.hpp"
+#include "display/Ssd1315Display.hpp"
+#include "display/DashboardScreen.hpp"
 
 #include "esp_err.h"
 #include "esp_log.h"

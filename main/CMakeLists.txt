@@ -20,6 +20,34 @@ if(PROJECT_DIR)
     list(APPEND SRCS "${PROJECT_DIR}/Board.cpp")
 endif()
 
+# 显示驱动与界面模板（main/display/，按 NODE_DISPLAY_* 条件编入；
+# REQUIRES 已在下方无条件声明，此处只条件化 SRCS —— 早期依赖收集读不到 CONFIG_*）
+if(CONFIG_NODE_DISPLAY_SSD1315)
+    list(APPEND SRCS
+        "display/Ssd1315Display.cpp"
+        "display/DashboardScreen.cpp"
+    )
+endif()
+
+if(CONFIG_NODE_DISPLAY_SSD1306_128X32)
+    list(APPEND SRCS
+        "display/Ssd1306Display.cpp"
+        "display/CompactDashboardScreen.cpp"
+    )
+endif()
+
+if(CONFIG_NODE_DISPLAY_ILI9341_240X320)
+    list(APPEND SRCS
+        "display/SpitftTouchDisplay.cpp"
+        "display/fonts/lv_font_zh8.c"
+        "display/fonts/lv_font_zh10.c"
+        "display/fonts/lv_font_zh12.c"
+        "display/fonts/lv_font_zh14.c"
+        "display/fonts/lv_font_zh16.c"
+        "display/fonts/lv_font_zh24.c"
+    )
+endif()
+
 # 基础组件（所有项目必须）
 # 注意：REQUIRES 在早期依赖收集阶段读不到 CONFIG_*，必须无条件声明；
 # fan_control / automation 本身是可移植 C++ 组件，在 C3 上也能正常编译，
@@ -33,10 +61,17 @@ set(BASE_REQUIRES
     i2c_bus
     hardware_context
     sensors
-    display_service
     fan_control
     automation
     wifi_portal
+    esp_lcd
+    esp_lcd_touch
+    esp_lcd_touch_xpt2046
+    espressif__esp_lcd_ili9341
+    driver
+    esp_common
+    esp_netif
+    lvgl
     esp_event
     log
     bt
@@ -46,6 +81,7 @@ idf_component_register(
     SRCS ${SRCS}
     INCLUDE_DIRS "."
     REQUIRES ${BASE_REQUIRES}
+    PRIV_REQUIRES esp_lvgl_port
 )
 
 # 项目目录作为私有 include 路径：使该项目的 Board.cpp 可直接 #include "config.h"，

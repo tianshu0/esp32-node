@@ -1,4 +1,4 @@
-// 项目装配：ESP32-C3 + SSD1315 128x64 OLED + 21VOC 五合一空气质量模块（UART）
+﻿// 项目装配：ESP32-C3 + SSD1315 128x64 OLED + 21VOC 五合一空气质量模块（UART）
 //
 // 21VOC 输出 TVOC/CH2O(甲醛)/eCO2/温度/湿度。
 // 本文件是全项目唯一知道具体硬件组合的文件：
@@ -17,9 +17,9 @@
 #include "sensors/SensorDevice.hpp"
 #include "sensors/Voc21Sensor.hpp"
 
-#include "display_service/DisplayContext.hpp"
-#include "display_service/Ssd1315Display.hpp"
-#include "display_service/DashboardScreen.hpp"
+#include "display/DisplayContext.hpp"
+#include "display/Ssd1315Display.hpp"
+#include "display/DashboardScreen.hpp"
 
 #include "esp_err.h"
 #include "esp_log.h"
