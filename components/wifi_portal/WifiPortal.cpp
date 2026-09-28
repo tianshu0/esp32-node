@@ -42,64 +42,13 @@ static char s_sta_ip[16] = "";                  // STA IP 字符串
 static EventGroupHandle_t s_wifi_events = nullptr;
 static int s_sta_retry = 0;                     // STA 断线重连计数
 
-// ==================== 配置页（单文件 HTML，无需 SPIFFS） ====================
+// ==================== 配置页 ====================
 
-static const char kIndexHtml[] = R"html(<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>快笼子节点</title>
-<style>
-body{background:#0F172A;color:#E2E8F0;font-family:system-ui,sans-serif;margin:0 auto;padding:16px;max-width:480px}
-h1{font-size:20px;color:#2FD4F5;margin:8px 0}
-.card{background:#1A2530;border:1px solid #2A3A4A;border-radius:12px;padding:14px;margin-bottom:12px}
-.row{display:flex;justify-content:space-between;padding:6px 0;font-size:15px}
-.v{color:#2FD4F5;font-weight:600;text-align:right}
-input,select,button{width:100%;box-sizing:border-box;padding:10px;margin:6px 0;border-radius:8px;
-border:1px solid #2A3A4A;background:#0F172A;color:#E2E8F0;font-size:16px}
-button{background:#10B981;border:none;font-weight:700;color:#fff}
-button.gray{background:#374151}
-h3{margin:4px 0 8px;font-size:16px}
-#msg{color:#2FD4F5;min-height:18px;margin:6px 0 0;font-size:14px}
-</style></head><body>
-<h1>快笼子节点配置</h1>
-<div class="card">
- <div class="row"><span>节点 ID</span><span class="v" id="nid">--</span></div>
- <div class="row"><span>湿度</span><span class="v" id="humi">--</span></div>
- <div class="row"><span>风扇</span><span class="v" id="fan">--</span></div>
- <div class="row"><span>WiFi</span><span class="v" id="wifi">--</span></div>
- <button onclick="toggleFan()">风扇开 / 关</button>
-</div>
-<div class="card">
- <h3>WiFi 配网</h3>
- <button class="gray" onclick="scan()">扫描附近 WiFi</button>
- <select id="aplist" onchange="ssid.value=this.value"><option value="">-- 先点上方扫描 --</option></select>
- <input id="ssid" placeholder="WiFi 名称 (SSID)" maxlength="32">
- <input id="pass" type="password" placeholder="WiFi 密码" maxlength="64">
- <button onclick="saveWifi()">保存并连接</button>
- <p id="msg"></p>
-</div>
-<script>
-const $=id=>document.getElementById(id);
-async function st(){try{const j=await(await fetch('/status')).json();
-$('nid').textContent=j.node_id;
-$('humi').textContent=j.humi==null?'--':j.humi+' %';
-$('fan').textContent=j.fan?('运行中 '+j.power+'%'):'已停止';
-$('wifi').textContent=j.sta;
-if(j.set_ssid&&!$('ssid').value)$('ssid').value=j.set_ssid;}catch(e){}}
-async function toggleFan(){$('msg').textContent='切换中...';
-await fetch('/fan',{method:'POST'});st()}
-async function scan(){$('msg').textContent='扫描中，约3秒...';
-try{const j=await(await fetch('/scan')).json();
-$('aplist').innerHTML='<option value="">-- 共'+j.aps.length+'个 --</option>'
-+j.aps.map(a=>'<option value="'+a.s+'">'+a.s+' ('+a.r+'dBm)</option>').join('');
-$('msg').textContent='扫描完成，下拉选择';}catch(e){$('msg').textContent='扫描失败'}}
-async function saveWifi(){if(!$('ssid').value){$('msg').textContent='请填写 WiFi 名称';return}
-$('msg').textContent='保存并连接中...';
-const body=new URLSearchParams({ssid:$('ssid').value,pass:$('pass').value});
-const r=await fetch('/wifi',{method:'POST',body:body});
-$('msg').textContent=await r.text();st()}
-setInterval(st,3000);st();
-</script></body></html>)html";
+// 页面是独立文件 web/index.html，由 CMake EMBED_FILES 在编译期嵌入固件只读段
+// （无需 SPIFFS 分区，单 bin 烧录）。符号名只取文件 basename（web/ 目录前缀
+// 不进入符号名）；数据不以 '\0' 结尾，长度须用 end - start 计算。
+extern const char kIndexHtmlStart[] asm("_binary_index_html_start");
+extern const char kIndexHtmlEnd[]   asm("_binary_index_html_end");
 
 // ==================== 工具函数 ====================
 
@@ -268,7 +217,8 @@ static esp_err_t ErrorRedirect(httpd_req_t* req, httpd_err_code_t err)
 static esp_err_t HandlerIndex(httpd_req_t* req)
 {
     httpd_resp_set_type(req, "text/html; charset=utf-8");
-    httpd_resp_send(req, kIndexHtml, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, kIndexHtmlStart,
+                    static_cast<ssize_t>(kIndexHtmlEnd - kIndexHtmlStart));
     return ESP_OK;
 }
 

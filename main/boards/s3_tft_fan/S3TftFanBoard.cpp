@@ -1,4 +1,4 @@
-﻿// 项目装配：ESP32-S3 N16R8 + SPI TFT (ILI9341) + XPT2046 触摸
+// 项目装配：ESP32-S3 N16R8 + SPI TFT (ILI9341) + XPT2046 触摸
 //           + AHT20/BMP280 二合一模块 + PWM 风扇 + 自动化规则
 //
 // 硬件连接见同目录 config.h；本文件负责：
@@ -7,7 +7,7 @@
 //   3. LEDC PWM 风扇控制
 //   4. SPI TFT 显示驱动（ILI9341 + XPT2046 触摸 + LVGL 多页 UI）
 //   5. 自动化规则引擎（阈值触发 + 定时时长 + 迟滞保护）
-#include "Board.hpp"
+#include "S3TftFanBoard.hpp"
 #include "config.h"
 
 #include "app_config/AppConfig.hpp"
@@ -36,8 +36,9 @@ static const char* TAG = "board-fan";
 // max_transfer_sz 按最大分区缓冲：横屏 320*20*2=12800B（竖屏 240*20*2=9600B）
 static constexpr int kSpiMaxTransferBytes = 320 * 2 * 20;
 
-void BoardAssemble(NodeContext& c)
+void S3TftFanBoard::Assemble()
 {
+    NodeContext& c = ctx_;
     namespace pin = project_s3_tft_fan;
 
     // ==================== 1. SPI2_HOST 总线 ====================
@@ -130,6 +131,12 @@ void BoardAssemble(NodeContext& c)
              c.registry->Count(),
              fan_err == ESP_OK ? "on" : "off",
              disp_err == ESP_OK ? "on" : "off");
+}
+
+Board& GetBoard(NodeContext& ctx)
+{
+    static S3TftFanBoard board(ctx);
+    return board;
 }
 
 } // namespace esp32node

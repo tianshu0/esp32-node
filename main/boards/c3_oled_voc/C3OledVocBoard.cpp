@@ -1,20 +1,21 @@
-﻿// 项目装配：ESP32-C3 + SSD1315 128x64 OLED + SHT3X 温湿度 + BMP180 气压
+// 项目装配：ESP32-C3 + SSD1315 128x64 OLED + 21VOC 五合一空气质量模块（UART）
 //
+// 21VOC 输出 TVOC/CH2O(甲醛)/eCO2/温度/湿度。
 // 本文件是全项目唯一知道具体硬件组合的文件：
 //   - 总线/传感器/屏的具体类名只出现在这里，main.cpp 与核心组件保持硬件无关
-//   - 单个传感器初始化失败只告警跳过（I2C 地址无应答），节点带可用部件继续运行
+//   - 传感器初始化失败只告警跳过，节点带可用部件继续运行
 //   - 屏未接同样只告警，不影响 BLE 广播与数据上报
-#include "Board.hpp"
+#include "C3OledVocBoard.hpp"
 #include "config.h"
 
 #include "app_config/AppConfig.hpp"
 #include "sensor_registry/SensorRegistry.hpp"
 #include "i2c_bus/I2cBus.hpp"
+#include "uart_bus/UartBus.hpp"
 #include "hardware_context/HardwareContext.hpp"
 
 #include "sensors/SensorDevice.hpp"
-#include "sensors/Sht3xSensor.hpp"
-#include "sensors/Bmp180Sensor.hpp"
+#include "sensors/Voc21Sensor.hpp"
 
 #include "display/DisplayContext.hpp"
 #include "display/Ssd1315Display.hpp"
@@ -25,28 +26,32 @@
 
 namespace esp32node {
 
-static const char* TAG = "board-thp";
+static const char* TAG = "board-voc";
 
-void BoardAssemble(NodeContext& c)
+void C3OledVocBoard::Assemble()
 {
-    // ---- I2C 总线：SHT3X / BMP180 / OLED 共用（400kHz，互斥由 I2cBus 保证）----
+    NodeContext& c = ctx_;
+    // ---- I2C 总线：OLED 专用（400kHz）----
     static I2cBus i2c;
     ESP_ERROR_CHECK(i2c.Init(c.config->I2cSda(), c.config->I2cScl()));
+
+    // ---- UART1 总线：21VOC 空气质量模块独占（点对点，无仲裁）----
+    static UartBus uart;
+    ESP_ERROR_CHECK(uart.Init(project_c3_oled_voc::kVocUartPort,
+                              project_c3_oled_voc::kVocUartTx,
+                              project_c3_oled_voc::kVocUartRx));
 
     // 必须 static：显示驱动 Start() 会把 DisplayContext（含 hw 指针）存入成员，
     // 刷新任务持续解引用；栈对象在函数返回后即悬空。
     static HardwareContext hw;
     hw.i2c = &i2c;
+    hw.uart = &uart;
 
     // ---- 传感器：驱动在 Start() 内自登记到 registry ----
-    static Sht3xSensor sht3x;
-    if (sht3x.Start(hw, *c.config, *c.registry) != ESP_OK) {
-        ESP_LOGW(TAG, "sht3x disabled, check wiring (addr 0x44/0x45)");
-    }
-
-    static Bmp180Sensor bmp180;
-    if (bmp180.Start(hw, *c.config, *c.registry) != ESP_OK) {
-        ESP_LOGW(TAG, "bmp180 disabled, check wiring (addr 0x77)");
+    static Voc21Sensor voc21;
+    if (voc21.Start(hw, *c.config, *c.registry) != ESP_OK) {
+        ESP_LOGW(TAG, "voc21 disabled, check uart wiring (tx=%d rx=%d)",
+                 project_c3_oled_voc::kVocUartTx, project_c3_oled_voc::kVocUartRx);
     }
 
     // ---- 显示屏：驱动（什么屏）与内容模板（显示什么）在装配处组合 ----
@@ -65,6 +70,12 @@ void BoardAssemble(NodeContext& c)
     } else {
         c.display_present = true;
     }
+}
+
+Board& GetBoard(NodeContext& ctx)
+{
+    static C3OledVocBoard board(ctx);
+    return board;
 }
 
 } // namespace esp32node

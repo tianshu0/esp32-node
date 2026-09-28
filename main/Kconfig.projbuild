@@ -3,13 +3,13 @@
 # 在本菜单选一个项目（或在 ESP-IDF shell 执行 python release.py <项目> 一键构建）：
 # 项目宏通过 select 自动锁定显示屏 / 传感器 / 触摸等内部开关，组件层无需感知。
 #
-# 每个项目对应 main/projects/<name>/ 目录：
-#   config.h    板级编译期常量（引脚/通道等，仅本项目 Board.cpp include）
-#   config.json 构建元数据（target 芯片 + sdkconfig 追加项，供 release.py 使用）
-#   Board.cpp   装配实现（本项目唯一知道具体硬件组合的文件）
+# 每个项目对应 main/boards/<name>/ 目录：
+#   config.h         板级编译期常量（引脚/通道等，仅本项目 <Xxx>Board.cpp include）
+#   config.json      构建元数据（target 芯片 + sdkconfig 追加项，供 release.py 使用）
+#   <Xxx>Board.cpp   装配实现（本项目唯一知道具体硬件组合的文件）
 #
 # 新增项目步骤：
-#   1. 新建 main/projects/<name>/{config.h,config.json,Board.cpp}
+#   1. 新建 main/boards/<name>/{config.h,config.json,<Xxx>Board.hpp,<Xxx>Board.cpp}
 #   2. 在下方 NODE_PROJECT choice 加一个 config，并用 select 锁定所需内部符号
 #   3. 在 main/CMakeLists.txt 加一个 elseif(CONFIG_NODE_PROJECT_<NAME>) 映射目录
 
@@ -20,7 +20,7 @@ menu "Node project"
         default NODE_PROJECT_S3_TFT_FAN
         help
             选择目标项目。项目决定芯片、显示屏、传感器与外设的全套组合，
-            对应 main/projects/<name>/ 目录。
+            对应 main/boards/<name>/ 目录。
             也可在 ESP-IDF shell 中执行 python release.py <项目> 一键构建。
 
         config NODE_PROJECT_C3_OLED_THP
