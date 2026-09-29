@@ -14,7 +14,6 @@ idf_component_register(
     REQUIRES
         app_config
         sensor_registry
-        data_pipeline
         bt
         esp_event
         json

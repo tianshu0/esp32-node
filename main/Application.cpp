@@ -31,9 +31,6 @@ esp_err_t Application::Init()
 
     ESP_RETURN_ON_ERROR(registry_.Init(), TAG, "sensor registry init failed");
 
-    // data_pipeline 持有事件基，display/automation/ble 订阅该事件基投递的采集数据
-    ESP_RETURN_ON_ERROR(pipeline_.Init(&config_, &registry_), TAG, "pipeline init failed");
-
 #if CONFIG_BT_ENABLED
     ESP_RETURN_ON_ERROR(ble_.Init(&config_, &registry_), TAG, "ble init failed");
 #endif
@@ -91,7 +88,7 @@ void Application::UpdateDisplay()
         return;
     }
 
-    // 读取所有传感器（与 data_pipeline 的采集互斥由传感器驱动内部保证）
+    // 读取所有传感器（与 BLE 采集任务的并发访问由传感器驱动内部互斥保证）
     SensorReading samples[SensorRegistry::kMaxSensors] = {};
     int n = registry_.ReadAll(samples, SensorRegistry::kMaxSensors);
     disp->UpdateSamples(samples, n);

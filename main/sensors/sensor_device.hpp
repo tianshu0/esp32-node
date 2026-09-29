@@ -5,7 +5,7 @@
 //   2. 把能力（type/model/format/显示字段/采集函数）登记到 SensorRegistry；
 //   3. 初始化失败返回错误码，由板型装配层决定告警跳过（不拖垮整机）。
 //
-// data_pipeline / ble_peripheral / 显示模板只依赖 SensorRegistry，
+// ble_peripheral / 显示模板只依赖 SensorRegistry，
 // 因此新增传感器不需要改动它们，也不需要改 main.cpp。
 #pragma once
 

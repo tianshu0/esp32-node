@@ -53,8 +53,7 @@ esp32-node/
 │   ├── sensors/                 # 传感器插件层：SensorDevice 基类 + 各驱动（SHT3X/BMP180/VOC21）
 │   ├── sensor_registry/         # 传感器注册表：类型 + 字段描述符 + 统一采集函数
 │   ├── display_service/         # 显示插件层：DisplayDevice/Screen 抽象 + OLED/TFT 驱动 + 界面模板
-│   ├── ble_peripheral/          # BLE 外设广播、GATT 服务、握手响应
-│   ├── data_pipeline/           # 定时采集 → 数据打包 → 交给 ble_peripheral 发送
+│   ├── ble_peripheral/          # BLE 外设广播、GATT 服务、握手响应、周期采集上报
 │   ├── fan_control/             # PWM 风扇控制（LEDC）
 │   ├── automation/              # 自动化规则引擎（阈值 → 风扇动作）
 │   ├── wifi_portal/             # SoftAP 网页配网
@@ -74,15 +73,14 @@ esp32-node/
 | `sensors` | 传感器插件：抽象基类 `SensorDevice` + 各驱动（当前 SHT3X / BMP180 / VOC21），由项目宏 `select` 的内部开关条件编入 | 新增传感器只加一对 `XxxSensor.{hpp,cpp}` 和一个内部开关，其他组件零改动 |
 | `sensor_registry` | 已注册传感器的类型、**字段描述符**（key/标签/单位/小数位）、采集函数 | 握手时上报能力清单，也是数据驱动 UI 的行模型，与驱动分离 |
 | `display_service` | 显示插件：驱动抽象 `DisplayDevice`（SSD1315/ILI9341）+ 内容抽象 `Screen`（`DashboardScreen` 仪表盘 / `SpitftTouchDisplay` 触摸 UI） | 「用什么屏」和「显示什么内容」两个变化方向分开；项目未选中屏时对应源文件整体不编入 |
-| `ble_peripheral` | BLE 广播、GATT 服务端、握手协议响应 | BLE 协议栈独立，握手逻辑可单独演进 |
-| `data_pipeline` | 定时触发采集 → 调 registry → 打包 → 交给 ble 发送 | 采集节奏与传输分离，改上报策略只动本组件 |
+| `ble_peripheral` | BLE 广播、GATT 服务端、握手协议响应、配对后周期采集与 Notify 上报 | BLE 协议栈独立；采集节奏（interval_ms 由 hub 下发、配对开始/断开停止）本质是 BLE 会话参数，内聚一处 |
 | `power_manager` | 采集间隙 light sleep、唤醒定时 | 电池供电场景可选启用，独立后不影响主流程 |
 
 切分原则：**组件之间不互相创建或持有所有权，只通过 `Init()`/`Start()` 注入的引用 + 事件总线交互**。
 `main.cpp` 本身与硬件完全无关——NVS/BLE 栈等公共初始化后调用 `BoardAssemble(ctx)`，
 由 `main/projects/<项目>/Board.cpp` 这**唯一一个文件**决定建什么总线、实例化哪些传感器、装什么屏。
-`ble_peripheral` 不需要知道传感器细节，握手时从 `sensor_registry` 取能力清单上报；
-`data_pipeline` 不需要知道 BLE 存在，采集完投递数据事件由 `ble_peripheral` 订阅发送；
+`ble_peripheral` 不需要知道传感器细节，握手时从 `sensor_registry` 取能力清单上报，
+配对后按 hub 下发的 `interval_ms` 周期采集打包并 Notify 上报（采集调度内聚在 BLE 组件内）；
 显示侧只做只读查询（向 `sensor_registry` 取实时值、向 `ble_peripheral` 取连接状态），不改变他人状态。
 
 `i2c_bus` 由项目装配文件创建并放入 `HardwareContext`，各传感器驱动与显示驱动作为同级消费者从它拿到各自设备句柄——总线生命周期不藏在某个驱动内部。
@@ -134,7 +132,7 @@ sensor_registry ────────────┤
    │    │ 读实时值/状态       │
    │    └── display_service ┘（Screen 数据驱动，不认识具体传感器）
    │
-data_pipeline ──定时 ReadAll──▶ 打包 ──▶ kEventSample ──▶ ble_peripheral
+ble_peripheral ──配对后定时 ReadAll──▶ 打包 ──▶ tx 队列 ──▶ GATT Notify
 
 装配关系（编译期由 NODE_PROJECT 项目宏决定）：
 main.cpp ──▶ BoardAssemble()  [main/projects/<项目>/Board.cpp]
@@ -146,7 +144,7 @@ main.cpp ──▶ BoardAssemble()  [main/projects/<项目>/Board.cpp]
 - 项目装配文件创建总线；该项目选定的传感器与显示屏通过 `HardwareContext` 拿到总线、挂各自从设备。
 - 传感器驱动在 `Start()` 内向 `sensor_registry` 注册自身：类型 + 采集函数 + **字段描述符**（每个字段的 key/短标签/单位/小数位）。
 - `ble_peripheral` 握手时从 `sensor_registry` 取能力清单上报给 hub。
-- `data_pipeline` 定时调 `sensor_registry.ReadAll()` 采集 → 投递数据事件 → `ble_peripheral` 订阅发送。
+- `ble_peripheral` 配对成功后按 `interval_ms` 定时调 `sensor_registry.ReadAll()` 采集 → 打包入 tx 队列 → 发送任务 GATT Notify 上报。
 - `DashboardScreen` 在 `Build()` 时遍历 `sensor_registry` 的字段描述符自动生成仪表盘行——加传感器后界面自动多一行，无需改 UI 代码。
 - `display_service` 每 1s 调 `sensor_registry.ReadAll()` 取实时值，并向 `ble_peripheral` 查询配对/连接状态（未配对时屏上也要有实时值）。
 - `power_manager` 在采集间隙与 BLE 空闲时进入 light sleep（可选）。
@@ -160,7 +158,6 @@ main.cpp ──▶ BoardAssemble()  [main/projects/<项目>/Board.cpp]
  ├─ app_config.Init()        加载 NVS（node_id/上报间隔/海平面气压）
  ├─ nimble_port_init()       BLE 协议栈 host（仅 C3 BLE 项目）
  ├─ sensor_registry.Init()   空注册表（具体条目由项目装配层登记）
- ├─ data_pipeline.Init()     创建采集定时任务（待配对完成后启动）
  ├─ ble_peripheral.Init()    配置广播数据、GATT 服务、启动广播（仅 C3 BLE 项目）
  ├─ BoardAssemble(ctx)       ★项目相关（main/projects/<项目>/Board.cpp）
  │    ├─ 总线 Init()               I2C/UART/SPI（SDA/SCL 默认取自 app_config）
@@ -181,18 +178,17 @@ ble_peripheral 广播（含 esp32-node 服务 UUID）
           ├─ 收到 hub 接受配对 { accepted: true, report_interval_ms }
           └─ 发送配对确认 { paired: true }
               └─ 保存 hub_id 到 NVS
-              └─ 启动 data_pipeline 定时采集
+              └─ 启动 BLE 采集任务定时采集
 ```
 
 ### 传感器数据上报流程
 
 ```
-data_pipeline 定时触发
+ble_peripheral 采集任务定时触发
   └─ sensor_registry.ReadAll() 采集（遍历所有已注册传感器）
       └─ 数据打包（按传感器类型格式化）
-          └─ 投递传感器数据事件
-              └─ ble_peripheral 订阅 → GATT Notify 发送
-                  └─ 等待下一周期
+          └─ tx 队列 → 发送任务 GATT Notify 上报
+              └─ 等待下一周期
 ```
 
 ### 断线重连流程
@@ -202,7 +198,7 @@ GATT 连接断开
   └─ ble_peripheral 重新广播
       └─ 等待 hub 重新连接（hub 端也会自动重连已配对节点）
           └─ 重新握手（使用保存的 hub_id 快速配对）
-              └─ data_pipeline 恢复采集
+              └─ ble_peripheral 恢复采集
 ```
 
 ## 蓝牙握手协议（与 esp32-hub 对应）
@@ -270,7 +266,7 @@ hub 收到后写入 `node_registry` 并经 MQTT 上报 `hub/{relay_id}/node/{nod
 }
 ```
 
-每个传感器类型对应一个数据包，由 `data_pipeline` 按注册表格式打包，`sensor_pipeline`（hub 端）按 `type` 解析后上报 MQTT。
+每个传感器类型对应一个数据包，由 `ble_peripheral` 按注册表格式打包，`sensor_pipeline`（hub 端）按 `type` 解析后上报 MQTT。
 单位：温度 ℃、湿度 %RH、气压 hPa、海拔 m（海拔以 `app_config.sea_level_hpa` 为参考海平面气压换算）。
 
 ## 显示（display_service）
@@ -302,7 +298,7 @@ P                  1013.2 hPa
 - 状态徽标：`ADV`（广播中）/ `CONN`（已连接未握手）/ `PAIRED`（配对完成）。
 - 刷新：独立任务每 1s 采集一次；某行读失败显示 `--` 加原单位。
 - 渲染：单色 `LV_COLOR_FORMAT_I1` 必须整屏缓冲，故采用整屏单缓冲；文本内容未变化时不重设 label，省掉一次整屏 I2C 传输。
-- 取数：直接调 `sensor_registry.ReadAll()` 拿实时值，不订阅 `data_pipeline` 的采集事件——后者只在配对后采样，而屏上未配对时也要显示。
+- 取数：直接调 `sensor_registry.ReadAll()` 拿实时值，不走 BLE 采集任务——后者只在配对后采样，而屏上未配对时也要显示。
 - 可选性：项目未选中的显示屏，其驱动源文件整体不编入；选中 SSD1315 但屏未接时 `Ssd1315Display::Start()` 返回错误，项目装配层仅打告警，节点照常广播与上报。
 
 ## 项目配置机制与硬件扩展
@@ -330,7 +326,7 @@ P                  1013.2 hPa
 4. 在使用该传感器的项目 `Board.cpp` 里实例化：`static XxxSensor xxx; xxx.Start(hw, …)`，
    并在该项目的 `config NODE_PROJECT_*` 下加一行 `select NODE_SENSOR_XXX`。
 
-完成后：握手清单、data_pipeline 采集、仪表盘行（自动多一行）全部自动生效，其他组件零改动。
+完成后：握手清单、BLE 周期采集、仪表盘行（自动多一行）全部自动生效，其他组件零改动。
 
 ### 加一种新显示屏
 

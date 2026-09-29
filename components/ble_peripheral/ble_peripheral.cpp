@@ -4,13 +4,13 @@
 //   上电 -> NimBLE sync -> 广播（含 ff00 服务 UUID）
 //        -> hub 连接 -> hub 订阅 ff02 CCC + 写 hello
 //        -> 回 hello_ack（node_id + 能力清单）
-//        -> 收 accept（interval_ms）-> 回 ack_done -> 通知 data_pipeline 开始采集
+//        -> 收 accept（interval_ms）-> 回 ack_done -> 启动周期采集
 //        -> 周期性 Notify 传感器数据
-//   断开 -> 通知 data_pipeline 暂停 -> 重新广播，等 hub 重连
+//   断开 -> 暂停采集 -> 重新广播，等 hub 重连
 //
 // 为避免循环依赖，ble_peripheral 不引入 sensors 驱动：
 //   - 能力清单来自 sensor_registry（只有描述，没有驱动细节）
-//   - 采样数据来自 data_pipeline 的事件，本组件只做转发
+//   - 采集调度内聚在本组件（原 data_pipeline 组件已合并，见头文件说明）
 #include "ble_peripheral/ble_peripheral.hpp"
 #include "app_config/app_config.hpp"
 #include "sensor_registry/sensor_registry.hpp"
@@ -93,9 +93,8 @@ const struct ble_gatt_svc_def* BlePeripheral::ServiceTable()
 
 BlePeripheral::~BlePeripheral()
 {
-    if (handler_registered_) {
-        esp_event_handler_unregister(kNodeEventBase, DataPipeline::kEventSample,
-                                     &BlePeripheral::EventHandler);
+    if (collect_events_ != nullptr) {
+        vEventGroupDelete(collect_events_);
     }
     if (tx_queue_ != nullptr) {
         vQueueDelete(tx_queue_);
@@ -114,19 +113,15 @@ esp_err_t BlePeripheral::Init(AppConfig* config, SensorRegistry* registry)
     registry_ = registry;
     s_instance_ = this;
 
-    tx_queue_ = xQueueCreate(4, sizeof(DataPipeline::SensorPacket));
+    tx_queue_ = xQueueCreate(4, sizeof(SensorPacket));
     if (tx_queue_ == nullptr) {
         return ESP_ERR_NO_MEM;
     }
 
-    // 订阅采集数据事件（data_pipeline 产生，本组件负责 Notify 上报）
-    esp_err_t err = esp_event_handler_register(kNodeEventBase, DataPipeline::kEventSample,
-                                               &BlePeripheral::EventHandler, this);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "register sample handler failed: %s", esp_err_to_name(err));
-        return err;
+    collect_events_ = xEventGroupCreate();
+    if (collect_events_ == nullptr) {
+        return ESP_ERR_NO_MEM;
     }
-    handler_registered_ = true;
 
     // 注册 GAP/GATT 基础服务 + 自定义 ff00 服务
     ble_svc_gap_init();
@@ -163,6 +158,16 @@ esp_err_t BlePeripheral::Init(AppConfig* config, SensorRegistry* registry)
     if (tx_task_ok != pdPASS) {
         task_ = nullptr;
         ESP_LOGE(TAG, "xTaskCreate ble_tx failed, free heap=%u",
+                 static_cast<unsigned>(esp_get_free_heap_size()));
+        return ESP_ERR_NO_MEM;
+    }
+
+    // 采集任务：配对后按 interval 采集打包入队（原 data_pipeline 职责）
+    BaseType_t collect_ok = xTaskCreate(&BlePeripheral::CollectTask, "ble_collect", 4096,
+                                        this, 5, &collect_task_);
+    if (collect_ok != pdPASS) {
+        collect_task_ = nullptr;
+        ESP_LOGE(TAG, "xTaskCreate ble_collect failed, free heap=%u",
                  static_cast<unsigned>(esp_get_free_heap_size()));
         return ESP_ERR_NO_MEM;
     }
@@ -281,8 +286,8 @@ int BlePeripheral::GapEventCb(ble_gap_event* event, void* arg)
         ESP_LOGW(TAG, "disconnected, reason=%d", event->disconnect.reason);
         self->conn_handle_ = BLE_HS_CONN_HANDLE_NONE;
         self->paired_ = false;
-        // 通知 data_pipeline 暂停采集，然后重新广播等 hub 重连
-        esp_event_post(kNodeEventBase, DataPipeline::kEventUnpaired, nullptr, 0, 0);
+        // 暂停采集，然后重新广播等 hub 重连
+        self->SetCollecting(false);
         self->Advertise();
         return 0;
 
@@ -394,7 +399,7 @@ void BlePeripheral::HandleCommand(const char* json, int len)
         SendNotify(kAckDone, static_cast<int>(sizeof(kAckDone) - 1));
 
         paired_ = true;
-        esp_event_post(kNodeEventBase, DataPipeline::kEventPaired, nullptr, 0, 0);
+        SetCollecting(true);
     } else {
         ESP_LOGW(TAG, "unknown act: %s", act->valuestring);
     }
@@ -462,21 +467,10 @@ bool BlePeripheral::SendNotify(const char* data, int len)
 
 // ================ 数据发送任务 ================
 
-void BlePeripheral::EventHandler(void* arg, esp_event_base_t base, int32_t id, void* data)
-{
-    BlePeripheral* self = static_cast<BlePeripheral*>(arg);
-    if (self == nullptr || base != kNodeEventBase ||
-        id != DataPipeline::kEventSample || data == nullptr) {
-        return;
-    }
-    // 拷进队列，真正的 Notify 在 ble_tx 任务里做（避免占用事件循环任务栈）
-    xQueueSend(self->tx_queue_, data, 0);
-}
-
 void BlePeripheral::TaskMain(void* arg)
 {
     BlePeripheral* self = static_cast<BlePeripheral*>(arg);
-    DataPipeline::SensorPacket packet = {};
+    SensorPacket packet = {};
 
     for (;;) {
         if (xQueueReceive(self->tx_queue_, &packet, portMAX_DELAY) != pdTRUE) {
@@ -486,6 +480,82 @@ void BlePeripheral::TaskMain(void* arg)
             continue;   // 握手未完成/已断开，丢弃
         }
         self->SendNotify(packet.json, static_cast<int>(std::strlen(packet.json)));
+    }
+}
+
+// ================ 采集（原 data_pipeline 职责，组件内直连发送队列） ================
+
+void BlePeripheral::SetCollecting(bool paired)
+{
+    if (collect_events_ == nullptr) {
+        return;
+    }
+    if (paired) {
+        xEventGroupClearBits(collect_events_, kUnpaired);
+        xEventGroupSetBits(collect_events_, kPaired);
+    } else {
+        xEventGroupClearBits(collect_events_, kPaired);
+        xEventGroupSetBits(collect_events_, kUnpaired);
+    }
+}
+
+void BlePeripheral::CollectTask(void* arg)
+{
+    BlePeripheral* self = static_cast<BlePeripheral*>(arg);
+    self->RunCollect();
+    vTaskDelete(nullptr);
+}
+
+void BlePeripheral::RunCollect()
+{
+    ESP_LOGI(TAG, "collect task started, waiting for pairing");
+
+    for (;;) {
+        // 等握手完成
+        xEventGroupWaitBits(collect_events_, kPaired, pdFALSE, pdTRUE, portMAX_DELAY);
+
+        const uint32_t interval_ms = config_->ReportIntervalMs();
+        ESP_LOGI(TAG, "paired, sampling every %lu ms", static_cast<unsigned long>(interval_ms));
+
+        while (xEventGroupGetBits(collect_events_) & kPaired) {
+            CollectOnce();
+
+            // 睡到下一个采集周期；期间若断开则 kUnpaired 置位，立即退出
+            EventBits_t bits = xEventGroupWaitBits(
+                collect_events_, kUnpaired, pdTRUE, pdFALSE, pdMS_TO_TICKS(interval_ms));
+            if (bits & kUnpaired) {
+                break;
+            }
+        }
+        ESP_LOGW(TAG, "unpaired, sampling paused");
+    }
+}
+
+void BlePeripheral::CollectOnce()
+{
+    SensorReading readings[kMaxReadings] = {};
+    const int n = registry_->ReadAll(readings, kMaxReadings);
+    if (n <= 0) {
+        ESP_LOGW(TAG, "no valid sensor reading this cycle");
+        return;
+    }
+
+    for (int i = 0; i < n; ++i) {
+        SensorPacket packet = {};
+        const int written = std::snprintf(
+            packet.json, sizeof(packet.json),
+            "{\"type\":\"%s\",\"ts\":%lld,\"values\":%s}",
+            readings[i].type,
+            static_cast<long long>(readings[i].ts_ms),
+            readings[i].values_json);
+        if (written <= 0 || written >= static_cast<int>(sizeof(packet.json))) {
+            ESP_LOGW(TAG, "packet truncated, drop %s", readings[i].type);
+            continue;
+        }
+
+        if (xQueueSend(tx_queue_, &packet, 0) != pdTRUE) {
+            ESP_LOGW(TAG, "tx queue full, drop %s", readings[i].type);
+        }
     }
 }
 

@@ -66,7 +66,6 @@ endif()
 set(BASE_REQUIRES
     app_config
     sensor_registry
-    data_pipeline
     ble_peripheral
     power_manager
     i2c_bus
