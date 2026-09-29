@@ -19,9 +19,9 @@
 #pragma once
 
 #include "esp_err.h"
-#include "fan_control/FanControl.hpp"
-#include "sensor_registry/SensorRegistry.hpp"
-#include "app_config/AppConfig.hpp"
+#include "fan_control/fan_control.hpp"
+#include "sensor_registry/sensor_registry.hpp"
+#include "app_config/app_config.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <cstdint>

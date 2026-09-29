@@ -1,5 +1,5 @@
 // Automation 实现：规则引擎 + NVS 持久化 + 迟滞保护
-#include "automation/Automation.hpp"
+#include "automation/automation.hpp"
 
 #include "nvs_flash.h"
 #include "nvs.h"

@@ -4,11 +4,18 @@
 // 具体「这个项目挂什么总线、哪些传感器、什么屏」由 Kconfig 选中的
 // main/boards/<name>/<Xxx>Board.cpp 实现。
 //
+// 显示子系统：
+//   - Board 构造函数内尝试创建板级显示对象（ThpDisplay / VocDisplay / FanDisplay）
+//   - 失败则创建 NoDisplay 兜底，保证 GetDisplay() 永不返回 nullptr
+//   - Application 通过 GetDisplay() 拿到显示指针，1s 周期推数据（SetStatus/UpdateSamples）
+//
 // 新增项目步骤：
-//   1. 新建 main/boards/<name>/{config.h,config.json,<Xxx>Board.hpp,<Xxx>Board.cpp}
+//   1. 新建 main/boards/<name>/{config.h,config.json,<Xxx>Board.hpp,<Xxx>Board.cpp,<Xxx>Display.hpp,<Xxx>Display.cpp}
 //   2. Kconfig.projbuild 的 NODE_PROJECT choice 加一个 config（select 内部符号）
 //   3. main/CMakeLists.txt 加 elseif(CONFIG_NODE_PROJECT_<NAME>) 映射目录与文件名
 #pragma once
+
+#include "display/Display.hpp"
 
 namespace esp32node {
 
@@ -41,11 +48,15 @@ public:
     // 板名，用于启动日志（如 "s3_tft_fan"）
     virtual const char* Name() const = 0;
 
+    // 显示对象访问：构造时创建（失败用 NoDisplay），生命周期与 Board 相同
+    Display* GetDisplay() const { return display_; }
+
     bool DisplayPresent() const { return ctx_.display_present; }
     FanControl* GetFan() const { return ctx_.fan; }
 
 protected:
     NodeContext& ctx_;
+    Display* display_ = nullptr;  // 子类构造函数填充
 };
 
 // 由选中项目的 <Xxx>Board.cpp 提供：返回函数内 static 子类实例引用，

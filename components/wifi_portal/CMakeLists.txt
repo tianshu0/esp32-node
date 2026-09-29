@@ -3,7 +3,7 @@
 # 生成符号 _binary_index_html_start / _binary_index_html_end（只取 basename）
 idf_component_register(
     SRCS
-        "WifiPortal.cpp"
+        "wifi_portal.cpp"
     INCLUDE_DIRS
         "include"
     EMBED_FILES

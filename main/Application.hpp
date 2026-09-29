@@ -9,15 +9,15 @@
 
 #include "esp_err.h"
 
-#include "app_config/AppConfig.hpp"
-#include "sensor_registry/SensorRegistry.hpp"
-#include "data_pipeline/DataPipeline.hpp"
-#include "power_manager/PowerManager.hpp"
-#include "wifi_portal/WifiPortal.hpp"
-#include "boards/Board.hpp"
+#include "app_config/app_config.hpp"
+#include "sensor_registry/sensor_registry.hpp"
+#include "data_pipeline/data_pipeline.hpp"
+#include "power_manager/power_manager.hpp"
+#include "wifi_portal/wifi_portal.hpp"
+#include "boards/board.hpp"
 
 #if CONFIG_BT_ENABLED
-#include "ble_peripheral/BlePeripheral.hpp"
+#include "ble_peripheral/ble_peripheral.hpp"
 #endif
 
 namespace esp32node {
@@ -32,6 +32,10 @@ public:
     void Run();
 
 private:
+    // 1s 周期采集任务：读取传感器并推给显示（UpdateSamples/SetStatus）
+    static void SensorTask(void* arg);
+    void UpdateDisplay();
+
     AppConfig config_;         // 配置存储（NVS 读写，内部初始化 NVS）
     SensorRegistry registry_;  // 能力注册表（板级装配层登记传感器）
     DataPipeline pipeline_;    // 采集调度：配对后按间隔采集并打包投递
@@ -43,6 +47,8 @@ private:
 
     NodeContext board_ctx_;    // 装配上下文：输入 config/registry/ble，输出 fan/display_present
     Board* board_ = nullptr;   // 指向 GetBoard() 的 static 实例（Init 内填充）
+
+    TaskHandle_t sensor_task_ = nullptr;  // 1s 采集任务句柄
 };
 
 } // namespace esp32node

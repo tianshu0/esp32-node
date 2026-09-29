@@ -4,7 +4,7 @@
 # 但组件仍存在（INCLUDE_DIRS 可用），让 main/display 等依赖方保持 REQUIRES 不变。
 set(SRCS)
 if(CONFIG_BT_ENABLED)
-    list(APPEND SRCS "BlePeripheral.cpp")
+    list(APPEND SRCS "ble_peripheral.cpp")
 endif()
 
 idf_component_register(

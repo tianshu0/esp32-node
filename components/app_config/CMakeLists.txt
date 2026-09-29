@@ -1,7 +1,7 @@
 # app_config：NVS 配置存储组件
 idf_component_register(
     SRCS
-        "AppConfig.cpp"
+        "app_config.cpp"
     INCLUDE_DIRS
         "include"
     REQUIRES

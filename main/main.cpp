@@ -1,6 +1,6 @@
 // esp32-node 启动入口：硬件无关的系统初始化与板级装配全部由 Application 统领。
 // main.cpp 只剩三行：构造 Application -> Init -> Run。
-#include "Application.hpp"
+#include "application.hpp"
 
 #include "esp_check.h"
 

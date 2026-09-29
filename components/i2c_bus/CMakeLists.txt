@@ -1,7 +1,7 @@
-# i2c_bus：I2C 主机总线封装（sensors 驱动 / main/display 共用）
+# i2c_bus：I2C 主机总线封装（传感器驱动 / 板级显示共用）
 idf_component_register(
     SRCS
-        "I2cBus.cpp"
+        "i2c_bus.cpp"
     INCLUDE_DIRS
         "include"
     REQUIRES
