@@ -1,6 +1,6 @@
 # 节点项目配置（编译期「项目即宏」选择，对标 esp32-xiaozhi 的板型选择机制）
 #
-# 在本菜单选一个项目（或在 ESP-IDF shell 执行 python release.py <项目> 一键构建）：
+# 在本菜单选一个项目（或在 ESP-IDF shell 执行 python scripts/release.py <项目> 一键构建）：
 # 项目宏通过 select 自动锁定显示屏 / 传感器 / 触摸等内部开关，组件层无需感知。
 #
 # 每个项目对应 main/boards/<name>/ 目录：
@@ -21,7 +21,7 @@ menu "Node project"
         help
             选择目标项目。项目决定芯片、显示屏、传感器与外设的全套组合，
             对应 main/boards/<name>/ 目录。
-            也可在 ESP-IDF shell 中执行 python release.py <项目> 一键构建。
+            也可在 ESP-IDF shell 中执行 python scripts/release.py <项目> 一键构建。
 
         config NODE_PROJECT_C3_OLED_THP
             bool "C3 OLED 温湿度气压节点 (SSD1315 + SHT3X + BMP180)"

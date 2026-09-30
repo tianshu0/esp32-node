@@ -12,26 +12,29 @@ namespace esp32node {
 
 static const char* TAG = "voc-display";
 
-VocDisplay::VocDisplay(I2cBus* i2c, uint8_t addr, int w, int h, bool mirror_x, bool mirror_y)
-    : i2c_(i2c), addr_(addr), mirror_x_(mirror_x), mirror_y_(mirror_y)
+// 面板 IO 的时钟（与板装配层建 I2C 总线时给从设备的一致）
+static constexpr uint32_t kPanelI2cClkHz = 400000;
+
+VocDisplay::VocDisplay(i2c_master_bus_handle_t bus, uint8_t addr, int w, int h, bool mirror_x, bool mirror_y)
+    : bus_(bus), addr_(addr), mirror_x_(mirror_x), mirror_y_(mirror_y)
 {
     // 注意：width_/height_ 仅在全部初始化成功后才赋值，
     // Board 以 width()>0 判断显示是否可用。
-    if (!i2c_) {
-        ESP_LOGE(TAG, "I2cBus is null");
+    if (!bus_) {
+        ESP_LOGE(TAG, "I2C bus handle is null");
         return;
     }
 
     // ---------- 创建 I2C panel IO ----------
     esp_lcd_panel_io_i2c_config_t io_cfg = {};
     io_cfg.dev_addr = addr_;
-    io_cfg.scl_speed_hz = I2cBus::kDefaultClkHz;
+    io_cfg.scl_speed_hz = kPanelI2cClkHz;
     io_cfg.control_phase_bytes = 1;
     io_cfg.dc_bit_offset = 6;
     io_cfg.lcd_cmd_bits = 8;
     io_cfg.lcd_param_bits = 8;
 
-    esp_err_t err = esp_lcd_new_panel_io_i2c(i2c_->Handle(), &io_cfg, &io_);
+    esp_err_t err = esp_lcd_new_panel_io_i2c(bus_, &io_cfg, &io_);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "panel io failed: %s", esp_err_to_name(err));
         return;

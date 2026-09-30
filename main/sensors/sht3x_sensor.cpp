@@ -2,7 +2,7 @@
 
 #include <cstdio>
 #include <cstring>
-#include "i2c_bus/i2c_bus.hpp"
+#include "boards/board.hpp"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -32,19 +32,13 @@ static uint8_t Crc8(const uint8_t* data, size_t len)
     return crc;
 }
 
-esp_err_t Sht3xSensor::Start(HardwareContext& hw, AppConfig& /*config*/,
+esp_err_t Sht3xSensor::Start(Board& board, AppConfig& /*config*/,
                              SensorRegistry& registry)
 {
-    if (hw.i2c == nullptr) {
-        return ESP_ERR_INVALID_ARG;
-    }
+    board_ = &board;
 
-    esp_err_t err = hw.i2c->AddDevice(kAddrDefault, &dev_);
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    err = SendCommand(kCmdSoftReset);
+    // 软复位同时也是在线的自检：不应答即视为未接
+    esp_err_t err = SendCommand(kCmdSoftReset);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "soft reset failed: %s", esp_err_to_name(err));
         return err;
@@ -67,18 +61,12 @@ esp_err_t Sht3xSensor::Start(HardwareContext& hw, AppConfig& /*config*/,
 
 esp_err_t Sht3xSensor::SendCommand(uint16_t cmd)
 {
-    if (dev_ == nullptr) {
-        return ESP_ERR_INVALID_STATE;
-    }
     uint8_t buf[2] = {static_cast<uint8_t>(cmd >> 8), static_cast<uint8_t>(cmd & 0xFF)};
-    return i2c_master_transmit(dev_, buf, sizeof(buf), kI2cTimeoutMs);
+    return board_->I2cWrite(kAddrDefault, buf, sizeof(buf));
 }
 
 bool Sht3xSensor::Read(float* temperature_c, float* humidity_pct)
 {
-    if (dev_ == nullptr) {
-        return false;
-    }
     if (SendCommand(kCmdMeasureHighNoStretch) != ESP_OK) {
         ESP_LOGW(TAG, "measure command failed");
         return false;
@@ -86,7 +74,7 @@ bool Sht3xSensor::Read(float* temperature_c, float* humidity_pct)
     vTaskDelay(pdMS_TO_TICKS(kMeasureWaitMs));
 
     uint8_t raw[6] = {};
-    if (i2c_master_receive(dev_, raw, sizeof(raw), kI2cTimeoutMs) != ESP_OK) {
+    if (board_->I2cRead(kAddrDefault, raw, sizeof(raw)) != ESP_OK) {
         ESP_LOGW(TAG, "read failed");
         return false;
     }

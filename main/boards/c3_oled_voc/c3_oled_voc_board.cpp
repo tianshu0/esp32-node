@@ -7,13 +7,11 @@
 
 #include "app_config/app_config.hpp"
 #include "sensor_registry/sensor_registry.hpp"
-#include "i2c_bus/i2c_bus.hpp"
-#include "uart_bus/uart_bus.hpp"
-#include "hardware_context/hardware_context.hpp"
 
 #include "sensors/sensor_device.hpp"
 #include "sensors/voc21_sensor.hpp"
 
+#include "link/ble_link.hpp"
 #include "display/no_display.hpp"
 
 #include "esp_err.h"
@@ -26,43 +24,78 @@ static const char* TAG = "board-voc";
 C3OledVocBoard::C3OledVocBoard(NodeContext& ctx)
     : Board(ctx)
 {
-    display_ = nullptr;
+    display_ = nullptr;  // 需要 I2C 总线，延迟到 Assemble 创建
+}
+
+bool C3OledVocBoard::I2cProbe(uint8_t addr)
+{
+    return i2c_bus_ != nullptr &&
+           i2c_master_probe(i2c_bus_, addr, kI2cTimeoutMs) == ESP_OK;
+}
+
+int C3OledVocBoard::UartRead(uint8_t* buf, size_t len, uint32_t timeout_ms)
+{
+    return uart_read_bytes(project_c3_oled_voc::kVocUartPort, buf, len,
+                           pdMS_TO_TICKS(timeout_ms));
+}
+
+int C3OledVocBoard::UartWrite(const uint8_t* buf, size_t len)
+{
+    return uart_write_bytes(project_c3_oled_voc::kVocUartPort, buf, len);
 }
 
 void C3OledVocBoard::Assemble()
 {
     NodeContext& c = ctx_;
-    // ---- I2C 总线：OLED 专用（400kHz）----
-    static I2cBus i2c;
-    ESP_ERROR_CHECK(i2c.Init(c.config->I2cSda(), c.config->I2cScl()));
+    namespace pin = project_c3_oled_voc;
 
-    // ---- UART1 总线：21VOC 空气质量模块独占（点对点，无仲裁）----
-    static UartBus uart;
-    ESP_ERROR_CHECK(uart.Init(project_c3_oled_voc::kVocUartPort,
-                              project_c3_oled_voc::kVocUartTx,
-                              project_c3_oled_voc::kVocUartRx));
+    // ---- I2C 总线：OLED 专用（每设备 400kHz）----
+    i2c_master_bus_config_t bus_cfg = {};
+    bus_cfg.i2c_port = I2C_NUM_0;
+    bus_cfg.sda_io_num = static_cast<gpio_num_t>(c.config->I2cSda());
+    bus_cfg.scl_io_num = static_cast<gpio_num_t>(c.config->I2cScl());
+    bus_cfg.clk_source = I2C_CLK_SRC_DEFAULT;
+    bus_cfg.glitch_ignore_cnt = 7;
+    bus_cfg.flags.enable_internal_pullup = true;
+    ESP_ERROR_CHECK(i2c_new_master_bus(&bus_cfg, &i2c_bus_));
 
-    static HardwareContext hw;
-    hw.i2c = &i2c;
-    hw.uart = &uart;
+    // ---- UART1 总线：21VOC 空气质量模块独占（8N1，无流控）----
+    uart_config_t uart_cfg = {};
+    uart_cfg.baud_rate = 9600;
+    uart_cfg.data_bits = UART_DATA_8_BITS;
+    uart_cfg.parity = UART_PARITY_DISABLE;
+    uart_cfg.stop_bits = UART_STOP_BITS_1;
+    uart_cfg.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+    uart_cfg.source_clk = UART_SCLK_DEFAULT;
 
-    // ---- 传感器：驱动在 Start() 内自登记到 registry ----
+    ESP_ERROR_CHECK(uart_driver_install(pin::kVocUartPort, 1024, 0, 0, nullptr, 0));
+    ESP_ERROR_CHECK(uart_param_config(pin::kVocUartPort, &uart_cfg));
+    ESP_ERROR_CHECK(uart_set_pin(pin::kVocUartPort, pin::kVocUartTx, pin::kVocUartRx,
+                                 UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+
+    // ---- 传感器：驱动经本板的 UART 原语读数据，Start() 内自登记 ----
     static Voc21Sensor voc21;
-    if (voc21.Start(hw, *c.config, *c.registry) != ESP_OK) {
+    if (voc21.Start(*this, *c.config, *c.registry) != ESP_OK) {
         ESP_LOGW(TAG, "voc21 disabled, check uart wiring (tx=%d rx=%d)",
-                 project_c3_oled_voc::kVocUartTx, project_c3_oled_voc::kVocUartRx);
+                 pin::kVocUartTx, pin::kVocUartRx);
     }
+
+    // ---- 链路：BLE 外设（本板是 BLE 节点，经 BLE 与 hub 握手/周期上报）----
+#if CONFIG_BT_ENABLED
+    static BleLink link(*c.config, *c.registry);
+    link_ = &link;
+#endif
 
     // ---- 显示屏：探测面板地址，成功则创建 VocDisplay，失败则 NoDisplay ----
     uint8_t addr = 0;
-    if (i2c.Probe(0x3C)) {
+    if (I2cProbe(0x3C)) {
         addr = 0x3C;
-    } else if (i2c.Probe(0x3D)) {
+    } else if (I2cProbe(0x3D)) {
         addr = 0x3D;
     }
 
     if (addr != 0) {
-        static VocDisplay display(&i2c, addr, 128, 64, true, true);
+        static VocDisplay display(i2c_bus_, addr, 128, 64, true, true);
         if (display.width() > 0) {
             display_ = &display;
             c.display_present = true;

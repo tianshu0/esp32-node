@@ -18,7 +18,6 @@
 #include "esp_err.h"
 #include "sensors/sensor_device.hpp"
 #include "sensor_registry/sensor_registry.hpp"
-#include "uart_bus/uart_bus.hpp"
 
 namespace esp32node {
 
@@ -28,7 +27,7 @@ public:
     static constexpr size_t kFrameLen = 12;
 
     const char* Type() const override { return "air_quality"; }
-    esp_err_t Start(HardwareContext& hw, AppConfig& config,
+    esp_err_t Start(Board& board, AppConfig& config,
                     SensorRegistry& registry) override;
 
     // 采集最近一帧：TVOC(ug/m³) / CH2O(ug/m³) / eCO2(ppm) / 温度(℃) / 湿度(%RH)
@@ -42,7 +41,7 @@ private:
     // 把串口收到的字节喂入解析状态机，找到完整有效帧时更新缓存
     void Feed(const uint8_t* data, size_t len);
 
-    UartBus* uart_ = nullptr;
+    Board* board_ = nullptr;
 
     // 滑动接收缓冲（最多保留一帧长度，便于从头重新对齐）
     uint8_t rx_buf_[kFrameLen] = {};

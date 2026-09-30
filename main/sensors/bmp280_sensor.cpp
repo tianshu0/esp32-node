@@ -2,7 +2,7 @@
 
 #include <cmath>
 #include <cstdio>
-#include "i2c_bus/i2c_bus.hpp"
+#include "boards/board.hpp"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -33,18 +33,16 @@ static uint16_t Le16u(const uint8_t* p)
            static_cast<uint16_t>((static_cast<uint16_t>(p[1]) << 8));
 }
 
-esp_err_t Bmp280Sensor::Start(HardwareContext& hw, AppConfig& config,
+esp_err_t Bmp280Sensor::Start(Board& board, AppConfig& config,
                               SensorRegistry& registry)
 {
-    if (hw.i2c == nullptr) {
-        return ESP_ERR_INVALID_ARG;
-    }
+    board_ = &board;
 
     // 地址自识别：依次 Probe 0x76（SDO 接地）/ 0x77（SDO 接高）。
     // AHT20+BMP280 二合一模块不同批次上拉接法不一，固定 0x76 会漏检。
     const uint8_t candidates[] = {kAddrPrimary, kAddrSecondary};
     for (uint8_t a : candidates) {
-        if (hw.i2c->Probe(a)) {
+        if (board.I2cProbe(a)) {
             addr_ = a;
             break;
         }
@@ -53,11 +51,6 @@ esp_err_t Bmp280Sensor::Start(HardwareContext& hw, AppConfig& config,
         ESP_LOGE(TAG, "no device answering at 0x%02X or 0x%02X",
                  kAddrPrimary, kAddrSecondary);
         return ESP_ERR_NOT_FOUND;
-    }
-
-    esp_err_t err = hw.i2c->AddDevice(addr_, &dev_);
-    if (err != ESP_OK) {
-        return err;
     }
 
     uint8_t chip = 0;
@@ -115,22 +108,16 @@ esp_err_t Bmp280Sensor::Start(HardwareContext& hw, AppConfig& config,
 
 bool Bmp280Sensor::ReadRegs(uint8_t reg, uint8_t* buf, size_t len)
 {
-    if (dev_ == nullptr || buf == nullptr) {
+    if (buf == nullptr) {
         return false;
     }
-    if (i2c_master_transmit(dev_, &reg, 1, kI2cTimeoutMs) != ESP_OK) {
-        return false;
-    }
-    return i2c_master_receive(dev_, buf, len, kI2cTimeoutMs) == ESP_OK;
+    return board_->I2cWriteRead(addr_, &reg, 1, buf, len) == ESP_OK;
 }
 
 bool Bmp280Sensor::WriteReg(uint8_t reg, uint8_t value)
 {
-    if (dev_ == nullptr) {
-        return false;
-    }
     uint8_t buf[2] = {reg, value};
-    return i2c_master_transmit(dev_, buf, sizeof(buf), kI2cTimeoutMs) == ESP_OK;
+    return board_->I2cWrite(addr_, buf, sizeof(buf)) == ESP_OK;
 }
 
 bool Bmp280Sensor::ReadAdc(int32_t* adc_t, int32_t* adc_p)
@@ -187,9 +174,6 @@ void Bmp280Sensor::Compute(int32_t adc_t, int32_t adc_p,
 
 bool Bmp280Sensor::Read(float* temperature_c, float* pressure_hpa, float* altitude_m)
 {
-    if (dev_ == nullptr) {
-        return false;
-    }
     int32_t adc_t = 0;
     int32_t adc_p = 0;
     if (!ReadAdc(&adc_t, &adc_p)) {

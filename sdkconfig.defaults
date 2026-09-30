@@ -5,10 +5,10 @@
 # 的 builds.sdkconfig_append 提供，构建时经 release.py 生成为 fragment 拼接到本文件之后。
 #
 # 推荐构建方式（在已初始化的 ESP-IDF shell 中，仓库根目录）：
-#   python release.py --list                 # 列出全部项目
-#   python release.py <项目>                 # 配置 + 编译
-#   python release.py <项目> --flash -p COM7 # 编译 + 烧录
-#   python release.py <项目> --flash --monitor -p COM7
+#   python scripts/release.py --list                 # 列出全部项目
+#   python scripts/release.py <项目>                 # 配置 + 编译
+#   python scripts/release.py <项目> --flash -p COM7 # 编译 + 烧录
+#   python scripts/release.py <项目> --flash --monitor -p COM7
 #
 # 手动方式（不经过 release.py）：
 #   idf.py set-target <esp32c3|esp32s3>

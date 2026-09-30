@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include "i2c_bus/i2c_bus.hpp"
+#include "boards/board.hpp"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -28,16 +28,10 @@ static int16_t Be16(const uint8_t* p)
     return static_cast<int16_t>((static_cast<uint16_t>(p[0]) << 8) | p[1]);
 }
 
-esp_err_t Bmp180Sensor::Start(HardwareContext& hw, AppConfig& config,
+esp_err_t Bmp180Sensor::Start(Board& board, AppConfig& config,
                               SensorRegistry& registry)
 {
-    if (hw.i2c == nullptr) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    esp_err_t err = hw.i2c->AddDevice(kAddr, &dev_);
-    if (err != ESP_OK) {
-        return err;
-    }
+    board_ = &board;
 
     uint8_t chip = 0;
     if (!ReadRegs(kRegChipId, &chip, 1)) {
@@ -86,22 +80,16 @@ esp_err_t Bmp180Sensor::Start(HardwareContext& hw, AppConfig& config,
 
 bool Bmp180Sensor::ReadRegs(uint8_t reg, uint8_t* buf, size_t len)
 {
-    if (dev_ == nullptr || buf == nullptr) {
+    if (buf == nullptr) {
         return false;
     }
-    if (i2c_master_transmit(dev_, &reg, 1, kI2cTimeoutMs) != ESP_OK) {
-        return false;
-    }
-    return i2c_master_receive(dev_, buf, len, kI2cTimeoutMs) == ESP_OK;
+    return board_->I2cWriteRead(kAddr, &reg, 1, buf, len) == ESP_OK;
 }
 
 bool Bmp180Sensor::WriteReg(uint8_t reg, uint8_t value)
 {
-    if (dev_ == nullptr) {
-        return false;
-    }
     uint8_t buf[2] = {reg, value};
-    return i2c_master_transmit(dev_, buf, sizeof(buf), kI2cTimeoutMs) == ESP_OK;
+    return board_->I2cWrite(kAddr, buf, sizeof(buf)) == ESP_OK;
 }
 
 bool Bmp180Sensor::ReadRawTemp(int32_t* ut)
@@ -179,9 +167,6 @@ void Bmp180Sensor::Compute(int32_t ut, int32_t up, int32_t* temp_0c1, int32_t* p
 
 bool Bmp180Sensor::Read(float* temperature_c, float* pressure_hpa, float* altitude_m)
 {
-    if (dev_ == nullptr) {
-        return false;
-    }
     int32_t ut = 0;
     int32_t up = 0;
     if (!ReadRawTemp(&ut)) {

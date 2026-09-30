@@ -10,7 +10,6 @@
 #include "esp_err.h"
 #include "sensors/sensor_device.hpp"
 #include "sensor_registry/sensor_registry.hpp"
-#include "driver/i2c_master.h"
 
 namespace esp32node {
 
@@ -20,7 +19,7 @@ public:
     static constexpr uint8_t kAddrAlt = 0x45;
 
     const char* Type() const override { return "temp_hum"; }
-    esp_err_t Start(HardwareContext& hw, AppConfig& config,
+    esp_err_t Start(Board& board, AppConfig& config,
                     SensorRegistry& registry) override;
 
     // 单次采集：温度（℃）+ 相对湿度（%RH）
@@ -30,10 +29,9 @@ public:
     static bool ReadThunk(void* ctx, SensorReading* out);
 
 private:
-    static constexpr uint32_t kI2cTimeoutMs = 100;
     esp_err_t SendCommand(uint16_t cmd);
 
-    i2c_master_dev_handle_t dev_ = nullptr;
+    Board* board_ = nullptr;
 };
 
 } // namespace esp32node

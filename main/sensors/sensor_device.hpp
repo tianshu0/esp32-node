@@ -1,20 +1,21 @@
 // 传感器驱动统一基类（插件机制）
 //
 // 每个传感器一个子类，职责：
-//   1. Start() 内从 HardwareContext 取所需总线、初始化芯片；
+//   1. Start() 内通过 Board 的地址式总线原语访问硬件、初始化芯片；
 //   2. 把能力（type/model/format/显示字段/采集函数）登记到 SensorRegistry；
 //   3. 初始化失败返回错误码，由板型装配层决定告警跳过（不拖垮整机）。
 //
-// ble_peripheral / 显示模板只依赖 SensorRegistry，
+// ble / 显示模板只依赖 SensorRegistry，
 // 因此新增传感器不需要改动它们，也不需要改 main.cpp。
 #pragma once
 
 #include "esp_err.h"
 #include "app_config/app_config.hpp"
-#include "hardware_context/hardware_context.hpp"
 #include "sensor_registry/sensor_registry.hpp"
 
 namespace esp32node {
+
+class Board;
 
 class SensorDevice {
 public:
@@ -25,7 +26,7 @@ public:
 
     // 初始化硬件并把能力登记到 registry。
     // 硬件不存在/应答失败时返回非 OK，调用方告警并跳过。
-    virtual esp_err_t Start(HardwareContext& hw, AppConfig& config,
+    virtual esp_err_t Start(Board& board, AppConfig& config,
                             SensorRegistry& registry) = 0;
 };
 

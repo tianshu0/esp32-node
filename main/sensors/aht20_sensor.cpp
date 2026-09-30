@@ -1,7 +1,7 @@
 #include "sensors/aht20_sensor.hpp"
 
 #include <cstdio>
-#include "i2c_bus/i2c_bus.hpp"
+#include "boards/board.hpp"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -33,23 +33,16 @@ static uint8_t Crc8(const uint8_t* data, size_t len)
     return crc;
 }
 
-esp_err_t Aht20Sensor::Start(HardwareContext& hw, AppConfig& /*config*/,
+esp_err_t Aht20Sensor::Start(Board& board, AppConfig& /*config*/,
                              SensorRegistry& registry)
 {
-    if (hw.i2c == nullptr) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    esp_err_t err = hw.i2c->AddDevice(kAddr, &dev_);
-    if (err != ESP_OK) {
-        return err;
-    }
+    board_ = &board;
 
     // 上电稳定时间（Start 通常在系统初始化早期，保守等待）
     vTaskDelay(pdMS_TO_TICKS(kPowerOnWaitMs));
 
     // 软复位后再发校准命令，确保芯片处于已知状态
-    err = Transmit(&kCmdSoftReset, 1);
+    esp_err_t err = Transmit(&kCmdSoftReset, 1);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "soft reset failed: %s", esp_err_to_name(err));
         return err;
@@ -86,25 +79,19 @@ esp_err_t Aht20Sensor::Start(HardwareContext& hw, AppConfig& /*config*/,
 
 esp_err_t Aht20Sensor::Transmit(const uint8_t* data, size_t len)
 {
-    if (dev_ == nullptr) {
-        return ESP_ERR_INVALID_STATE;
-    }
-    return i2c_master_transmit(dev_, data, len, kI2cTimeoutMs);
+    return board_->I2cWrite(kAddr, data, len);
 }
 
 bool Aht20Sensor::ReadStatus(uint8_t* status)
 {
-    if (dev_ == nullptr || status == nullptr) {
+    if (status == nullptr) {
         return false;
     }
-    return i2c_master_receive(dev_, status, 1, kI2cTimeoutMs) == ESP_OK;
+    return board_->I2cRead(kAddr, status, 1) == ESP_OK;
 }
 
 bool Aht20Sensor::Read(float* temperature_c, float* humidity_pct)
 {
-    if (dev_ == nullptr) {
-        return false;
-    }
     if (Transmit(kCmdMeasure, sizeof(kCmdMeasure)) != ESP_OK) {
         ESP_LOGW(TAG, "trigger measure failed");
         return false;
@@ -113,7 +100,7 @@ bool Aht20Sensor::Read(float* temperature_c, float* humidity_pct)
 
     // 7 字节：状态 + 湿度/温度 5 字节 + CRC8（CRC 覆盖前 6 字节）
     uint8_t raw[7] = {};
-    if (i2c_master_receive(dev_, raw, sizeof(raw), kI2cTimeoutMs) != ESP_OK) {
+    if (board_->I2cRead(kAddr, raw, sizeof(raw)) != ESP_OK) {
         ESP_LOGW(TAG, "read failed");
         return false;
     }

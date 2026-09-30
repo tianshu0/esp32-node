@@ -11,7 +11,6 @@
 #include "esp_err.h"
 #include "sensors/sensor_device.hpp"
 #include "sensor_registry/sensor_registry.hpp"
-#include "driver/i2c_master.h"
 
 namespace esp32node {
 
@@ -21,7 +20,7 @@ public:
     static constexpr uint8_t kAddrSecondary = 0x77;  // SDO 接高
 
     const char* Type() const override { return "pressure"; }
-    esp_err_t Start(HardwareContext& hw, AppConfig& config,
+    esp_err_t Start(Board& board, AppConfig& config,
                     SensorRegistry& registry) override;
 
     bool Read(float* temperature_c, float* pressure_hpa, float* altitude_m = nullptr);
@@ -30,14 +29,12 @@ public:
     void SetSeaLevelHpa(float hpa) { sea_level_hpa_ = hpa; }
 
 private:
-    static constexpr uint32_t kI2cTimeoutMs = 100;
-
     bool ReadRegs(uint8_t reg, uint8_t* buf, size_t len);
     bool WriteReg(uint8_t reg, uint8_t value);
     bool ReadAdc(int32_t* adc_t, int32_t* adc_p);
     void Compute(int32_t adc_t, int32_t adc_p, float* out_t, float* out_p) const;
 
-    i2c_master_dev_handle_t dev_ = nullptr;
+    Board* board_ = nullptr;
     uint8_t addr_ = 0;   // 实际探测到的地址（0x76 / 0x77）
     float sea_level_hpa_ = 1013.25f;
 

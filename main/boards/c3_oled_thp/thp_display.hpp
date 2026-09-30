@@ -6,11 +6,11 @@
 //   - UpdateSamples 由 Application 1s 任务推数据（原 Run 任务迁移）
 //   - SetStatus 显示 BLE 连接状态（ADV/CONN/PAIRED）
 //
-// 构造注入：I2C 句柄、面板地址、宽高、镜像配置由 Board 装配层传入。
+// 构造注入：I2C 总线句柄、面板地址、宽高、镜像配置由 Board 装配层传入。
 #pragma once
 
 #include "display/display.hpp"
-#include "i2c_bus/i2c_bus.hpp"
+#include "driver/i2c_master.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_err.h"
@@ -22,7 +22,7 @@ class ThpDisplay : public Display {
 public:
     // 构造即创建面板与 LVGL，失败返回 ESP_ERR_NOT_FOUND
     // 生命周期：与 Board 相同（常驻到重启）
-    ThpDisplay(I2cBus* i2c, uint8_t addr, int w, int h, bool mirror_x, bool mirror_y);
+    ThpDisplay(i2c_master_bus_handle_t bus, uint8_t addr, int w, int h, bool mirror_x, bool mirror_y);
     ~ThpDisplay() override = default;
 
     // Display 被动接口
@@ -48,7 +48,7 @@ private:
         char cache[20] = {};  // 文本去重，避免整屏 I2C 重绘
     };
 
-    I2cBus* i2c_ = nullptr;
+    i2c_master_bus_handle_t bus_ = nullptr;
     uint8_t addr_ = 0;
     bool mirror_x_ = false;
     bool mirror_y_ = false;

@@ -4,7 +4,7 @@
 #pragma once
 
 #include "display/display.hpp"
-#include "i2c_bus/i2c_bus.hpp"
+#include "driver/i2c_master.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_err.h"
@@ -14,7 +14,7 @@ namespace esp32node {
 
 class VocDisplay : public Display {
 public:
-    VocDisplay(I2cBus* i2c, uint8_t addr, int w, int h, bool mirror_x, bool mirror_y);
+    VocDisplay(i2c_master_bus_handle_t bus, uint8_t addr, int w, int h, bool mirror_x, bool mirror_y);
     ~VocDisplay() override = default;
 
     void SetStatus(const char* status) override;
@@ -37,7 +37,7 @@ private:
         char cache[20] = {};
     };
 
-    I2cBus* i2c_ = nullptr;
+    i2c_master_bus_handle_t bus_ = nullptr;
     uint8_t addr_ = 0;
     bool mirror_x_ = false;
     bool mirror_y_ = false;

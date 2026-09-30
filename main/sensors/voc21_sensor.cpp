@@ -1,6 +1,7 @@
 #include "sensors/voc21_sensor.hpp"
 
 #include <cstdio>
+#include "boards/board.hpp"
 #include "esp_log.h"
 #include "esp_timer.h"
 
@@ -8,14 +9,10 @@ namespace esp32node {
 
 static const char* TAG = "voc21";
 
-esp_err_t Voc21Sensor::Start(HardwareContext& hw, AppConfig& /*config*/,
+esp_err_t Voc21Sensor::Start(Board& board, AppConfig& /*config*/,
                              SensorRegistry& registry)
 {
-    if (hw.uart == nullptr) {
-        ESP_LOGE(TAG, "no uart bus in hardware context");
-        return ESP_ERR_INVALID_ARG;
-    }
-    uart_ = hw.uart;
+    board_ = &board;
 
     // 本地屏幕字段：TV / CH / CO2 / T / H。线上 format_json 保持完整 5 字段。
     static const SensorField kFields[] = {
@@ -32,7 +29,7 @@ esp_err_t Voc21Sensor::Start(HardwareContext& hw, AppConfig& /*config*/,
                       kFields, sizeof(kFields) / sizeof(kFields[0]),
                       &Voc21Sensor::ReadThunk, this);
 
-    ESP_LOGI(TAG, "21VOC ready on uart%d (9600 8N1)", static_cast<int>(uart_->Port()));
+    ESP_LOGI(TAG, "21VOC ready (uart 9600 8N1)");
     return ESP_OK;
 }
 
@@ -95,14 +92,10 @@ void Voc21Sensor::Feed(const uint8_t* data, size_t len)
 bool Voc21Sensor::Read(uint16_t* tvoc, uint16_t* ch2o, uint16_t* eco2,
                        float* temperature_c, float* humidity_pct)
 {
-    if (uart_ == nullptr) {
-        return false;
-    }
-
     // 非阻塞读取所有已到达字节并喂入解析器
     uint8_t chunk[64];
     while (true) {
-        int n = uart_->Read(chunk, sizeof(chunk), 0);
+        int n = board_->UartRead(chunk, sizeof(chunk), 0);
         if (n <= 0) {
             break;
         }

@@ -1,13 +1,11 @@
 #include "application.hpp"
 
+#include "link/link.hpp"
+
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#include "esp_netif.h"
-
-#if CONFIG_BT_ENABLED
-#include "nimble/nimble_port.h"
-#endif
+#include "esp_system.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -24,31 +22,24 @@ esp_err_t Application::Init()
     // "esp_phy_load_cal_data_from_nvs: NVS has not been initialized" 并退回全量校准。
     ESP_RETURN_ON_ERROR(config_.Init(), TAG, "app config init failed");
 
-#if CONFIG_BT_ENABLED
-    // NimBLE 协议栈初始化（host 必须先于 ble_peripheral 启动）
-    ESP_RETURN_ON_ERROR(nimble_port_init(), TAG, "nimble init failed");
-#endif
-
     ESP_RETURN_ON_ERROR(registry_.Init(), TAG, "sensor registry init failed");
 
-#if CONFIG_BT_ENABLED
-    ESP_RETURN_ON_ERROR(ble_.Init(&config_, &registry_), TAG, "ble init failed");
-#endif
-
-    // 板级装配：创建总线、勾选的传感器、选中的显示屏（屏为可选项，失败只告警）
+    // 板级装配：创建总线、勾选的传感器、选中的显示屏与链路（屏/链路为可选项）
     board_ctx_.config = &config_;
     board_ctx_.registry = &registry_;
-#if CONFIG_BT_ENABLED
-    board_ctx_.ble = &ble_;
-#endif
     board_ = &GetBoard(board_ctx_);
     board_->Assemble();
 
-    power_.Init(&config_);
+    // 链路启动：BLE 还是 WiFi 由板装配层决定（BleLink 内部先 nimble_port_init
+    // 再注册 GATT 服务），Application 不感知传输类型
+    Link* link = board_->GetLink();
+    if (link == nullptr) {
+        ESP_LOGE(TAG, "board %s provided no link", board_->Name());
+        return ESP_ERR_INVALID_STATE;
+    }
+    ESP_RETURN_ON_ERROR(link->Start(), TAG, "link start failed");
 
-    // portal 依赖装配输出（fan 指针），必须在 Assemble 之后
-    ESP_RETURN_ON_ERROR(portal_.Init(&config_, board_->GetFan(), &registry_),
-                        TAG, "wifi portal init failed");
+    power_.Init(&config_);
 
     // 1s 周期采集任务：读取传感器并推给显示
     BaseType_t ok = xTaskCreate(SensorTask, "sensor", 3072, this, 4, &sensor_task_);
@@ -88,30 +79,13 @@ void Application::UpdateDisplay()
         return;
     }
 
-    // 读取所有传感器（与 BLE 采集任务的并发访问由传感器驱动内部互斥保证）
+    // 读取所有传感器（与链路采集任务的并发访问由传感器驱动内部互斥保证）
     SensorReading samples[SensorRegistry::kMaxSensors] = {};
     int n = registry_.ReadAll(samples, SensorRegistry::kMaxSensors);
     disp->UpdateSamples(samples, n);
 
-    // 推送 BLE 连接状态（C3 OLED 板）或 WiFi 状态（S3 TFT 板）
-#if CONFIG_BT_ENABLED
-    const char* status = "ADV";
-    if (ble_.IsPaired()) {
-        status = "PAIRED";
-    } else if (ble_.IsConnected()) {
-        status = "CONN";
-    }
-    disp->SetStatus(status);
-#else
-    // 无 BLE 项目（如 s3_tft_fan）：显示 WiFi 连接状态
-    esp_netif_t* sta = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-    bool connected = false;
-    if (sta) {
-        esp_netif_ip_info_t info = {};
-        connected = (esp_netif_get_ip_info(sta, &info) == ESP_OK && info.ip.addr != 0);
-    }
-    disp->SetStatus(connected ? "已连接" : "未连接");
-#endif
+    // 链路状态由板选定的 Link 提供（BLE: ADV/CONN/PAIRED；WiFi: 已连接/未连接）
+    disp->SetStatus(board_->GetLink()->StatusText());
 }
 
 } // namespace esp32node

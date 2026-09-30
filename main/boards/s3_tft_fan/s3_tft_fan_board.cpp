@@ -9,8 +9,6 @@
 
 #include "app_config/app_config.hpp"
 #include "sensor_registry/sensor_registry.hpp"
-#include "i2c_bus/i2c_bus.hpp"
-#include "hardware_context/hardware_context.hpp"
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -23,6 +21,7 @@
 
 #include "fan_control/fan_control.hpp"
 #include "automation/automation.hpp"
+#include "link/wifi_link.hpp"
 #include "display/no_display.hpp"
 
 namespace esp32node {
@@ -37,6 +36,65 @@ S3TftFanBoard::S3TftFanBoard(NodeContext& ctx)
 {
     // 显示对象延迟到 Assemble 创建（需要 SPI 总线先初始化）
     display_ = nullptr;
+}
+
+i2c_master_dev_handle_t S3TftFanBoard::I2cDevice(uint8_t addr)
+{
+    for (size_t i = 0; i < i2c_dev_count_; ++i) {
+        if (i2c_devs_[i].addr == addr) {
+            return i2c_devs_[i].dev;
+        }
+    }
+    if (i2c_bus_ == nullptr || i2c_dev_count_ >= kMaxI2cDevs) {
+        return nullptr;
+    }
+
+    i2c_device_config_t dev_cfg = {};
+    dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    dev_cfg.device_address = addr;
+    dev_cfg.scl_speed_hz = kI2cClkHz;
+
+    i2c_master_dev_handle_t dev = nullptr;
+    if (i2c_master_bus_add_device(i2c_bus_, &dev_cfg, &dev) != ESP_OK) {
+        ESP_LOGE(TAG, "add i2c device 0x%02X failed", addr);
+        return nullptr;
+    }
+    i2c_devs_[i2c_dev_count_++] = {addr, dev};
+    return dev;
+}
+
+esp_err_t S3TftFanBoard::I2cWrite(uint8_t addr, const uint8_t* data, size_t len)
+{
+    i2c_master_dev_handle_t dev = I2cDevice(addr);
+    if (dev == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    return i2c_master_transmit(dev, data, len, kI2cTimeoutMs);
+}
+
+esp_err_t S3TftFanBoard::I2cRead(uint8_t addr, uint8_t* buf, size_t len)
+{
+    i2c_master_dev_handle_t dev = I2cDevice(addr);
+    if (dev == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    return i2c_master_receive(dev, buf, len, kI2cTimeoutMs);
+}
+
+esp_err_t S3TftFanBoard::I2cWriteRead(uint8_t addr, const uint8_t* w, size_t wlen,
+                                      uint8_t* r, size_t rlen)
+{
+    i2c_master_dev_handle_t dev = I2cDevice(addr);
+    if (dev == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    return i2c_master_transmit_receive(dev, w, wlen, r, rlen, kI2cTimeoutMs);
+}
+
+bool S3TftFanBoard::I2cProbe(uint8_t addr)
+{
+    return i2c_bus_ != nullptr &&
+           i2c_master_probe(i2c_bus_, addr, kI2cTimeoutMs) == ESP_OK;
 }
 
 void S3TftFanBoard::Assemble()
@@ -71,25 +129,27 @@ void S3TftFanBoard::Assemble()
              pin::kTouchSck, pin::kTouchMosi, pin::kTouchMiso, pin::kTouchCs);
 
     // ==================== 2. I2C 总线 ====================
-    static I2cBus i2c;
-    ESP_ERROR_CHECK(i2c.Init(pin::kI2cSda, pin::kI2cScl));
+    i2c_master_bus_config_t i2c_cfg = {};
+    i2c_cfg.i2c_port = I2C_NUM_0;
+    i2c_cfg.sda_io_num = static_cast<gpio_num_t>(pin::kI2cSda);
+    i2c_cfg.scl_io_num = static_cast<gpio_num_t>(pin::kI2cScl);
+    i2c_cfg.clk_source = I2C_CLK_SRC_DEFAULT;
+    i2c_cfg.glitch_ignore_cnt = 7;
+    i2c_cfg.flags.enable_internal_pullup = true;
+    ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_cfg, &i2c_bus_));
 
-    // ==================== 3. 硬件上下文 ====================
-    static HardwareContext hw;
-    hw.i2c = &i2c;
-
-    // ==================== 4. 传感器 ====================
+    // ==================== 3. 传感器（经本板的 I2C 原语访问总线）====================
     static Aht20Sensor aht20;
-    if (aht20.Start(hw, *c.config, *c.registry) != ESP_OK) {
+    if (aht20.Start(*this, *c.config, *c.registry) != ESP_OK) {
         ESP_LOGW(TAG, "aht20 disabled, check wiring (addr 0x38)");
     }
 
     static Bmp280Sensor bmp280;
-    if (bmp280.Start(hw, *c.config, *c.registry) != ESP_OK) {
+    if (bmp280.Start(*this, *c.config, *c.registry) != ESP_OK) {
         ESP_LOGW(TAG, "bmp280 disabled, check wiring (addr 0x76/0x77)");
     }
 
-    // ==================== 5. PWM 风扇 ====================
+    // ==================== 4. PWM 风扇 ====================
     static FanControl fan;
     esp_err_t fan_err = fan.Init(pin::kFanPwmGpio,
                                  pin::kFanPwmFreq,
@@ -97,9 +157,8 @@ void S3TftFanBoard::Assemble()
     if (fan_err != ESP_OK) {
         ESP_LOGW(TAG, "fan control disabled: %s", esp_err_to_name(fan_err));
     }
-    c.fan = &fan;
 
-    // ==================== 6. SPI TFT + 触摸 ====================
+    // ==================== 5. SPI TFT + 触摸 ====================
     FanDisplayPins tft_pins = {};
     tft_pins.spi_host = SPI2_HOST;
     tft_pins.lcd_cs   = pin::kLcdCs;
@@ -142,9 +201,21 @@ void S3TftFanBoard::Assemble()
         ESP_LOGW(TAG, "using NoDisplay");
     }
 
-    // ==================== 7. 自动化规则引擎 ====================
+    // ==================== 6. 自动化规则引擎 ====================
     static Automation automation;
     automation.Init(c.config, c.registry, &fan);
+
+    // ==================== 7. 链路：WiFi（SoftAP 配网 + STA 上报）====================
+    // 风扇控制以回调注入（依赖反转）：wifi 组件不依赖 FanControl，只有本板知道风扇。
+    // 风扇初始化失败时不提供 hooks，网页自动隐藏风扇开关。
+    FanHooks fan_hooks;
+    if (fan_err == ESP_OK) {
+        fan_hooks.is_running = [&fan]() { return fan.IsRunning(); };
+        fan_hooks.power      = [&fan]() { return fan.CurrentPower(); };
+        fan_hooks.set_power  = [&fan](int pct) { fan.SetPower(pct, true); };
+    }
+    static WifiLink link(*c.config, *c.registry, fan_hooks);
+    link_ = &link;
 
     ESP_LOGI(TAG, "project s3_tft_fan assembled: sensors=%d fan=%s display=%s",
              c.registry->Count(),

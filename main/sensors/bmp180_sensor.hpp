@@ -12,7 +12,6 @@
 #include "esp_err.h"
 #include "sensors/sensor_device.hpp"
 #include "sensor_registry/sensor_registry.hpp"
-#include "driver/i2c_master.h"
 
 namespace esp32node {
 
@@ -23,7 +22,7 @@ public:
     static constexpr uint8_t kOversampling = 1;
 
     const char* Type() const override { return "pressure"; }
-    esp_err_t Start(HardwareContext& hw, AppConfig& config,
+    esp_err_t Start(Board& board, AppConfig& config,
                     SensorRegistry& registry) override;
 
     // 采集：温度（℃）、气压（hPa）、海拔（m，可传 nullptr 跳过）
@@ -35,8 +34,6 @@ public:
     void SetSeaLevelHpa(float hpa) { sea_level_hpa_ = hpa; }
 
 private:
-    static constexpr uint32_t kI2cTimeoutMs = 100;
-
     bool ReadRegs(uint8_t reg, uint8_t* buf, size_t len);
     bool WriteReg(uint8_t reg, uint8_t value);
     bool ReadRawTemp(int32_t* ut);
@@ -44,7 +41,7 @@ private:
     // 按 datasheet 的整数算法由原始值算出温度（0.1℃）与气压（Pa）
     void Compute(int32_t ut, int32_t up, int32_t* temp_0c1, int32_t* pressure_pa) const;
 
-    i2c_master_dev_handle_t dev_ = nullptr;
+    Board* board_ = nullptr;
 
     // 出厂校准系数（int16 有符号 / 无符号按 datasheet）
     int16_t ac1_ = 0;
