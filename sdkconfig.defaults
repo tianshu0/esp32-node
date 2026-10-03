@@ -20,3 +20,12 @@
 # 主任务栈：容纳 C++ 组件初始化（NimBLE + 组件装配）
 # S3 项目在其 config.json 中覆盖为 10240
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+
+# =====================================================================
+# LVGL 通用配置（所有带屏项目共享）
+# 内存池默认按 C3 资源受限取 16KB，S3 项目在其 config.json 覆盖为 32KB
+# =====================================================================
+CONFIG_LV_MEM_SIZE=16384
+CONFIG_LV_FONT_MONTSERRAT_10=y
+CONFIG_LV_FONT_MONTSERRAT_12=y
+CONFIG_LV_FONT_MONTSERRAT_14=y

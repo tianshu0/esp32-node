@@ -1,6 +1,7 @@
 dependencies:
-  idf: ">=5.0"
-  lvgl/lvgl: "^9.2.0"
-  espressif/esp_lvgl_port: "^2.1.0"
-  espressif/esp_lcd_ili9341: "^2.1.0"
-  atanisoft/esp_lcd_touch_xpt2046: "~1.0.6"
+  idf: '>=5.0'
+  lvgl/lvgl: ~9.5.0
+  esp_lvgl_port: ~2.9.0
+  espressif/esp_lcd_ili9341: ^2.1.0
+  atanisoft/esp_lcd_touch_xpt2046: ~1.0.6
+  waveshare/esp_oled_ssd1315: ^2.0.0

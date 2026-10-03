@@ -1,25 +1,23 @@
-// c3_oled_voc 板：ESP32-C3 + SSD1315 128x64 OLED + 21VOC 五合一空气质量模块（UART）
+// s3_tft_fan 板：ESP32-S3 N16R8 + ILI9341 240x320 SPI TFT + XPT2046 触摸
+//                + AHT20/BMP280 二合一模块 + PWM 风扇 + 自动化规则
 //
-// Assemble()：建 I2C/UART 总线 -> 实例化传感器组件 -> 探测面板地址并创建 VocDisplay
+// 构造函数：创建 FanDisplay（面板/LVGL/触摸在构造内初始化）
+// Assemble()：建 SPI/I2C 总线 -> 实例化传感器/风扇/自动化
 #pragma once
 
 #include <cstddef>
 #include <cstdint>
 #include "boards/board.hpp"
 #include "driver/i2c_master.h"
-#include "driver/uart.h"
 
 namespace esp32node {
 
-class C3OledVocBoard : public Board {
+class S3TftFanBoard : public Board {
 public:
-    explicit C3OledVocBoard(NodeContext& ctx);
+    explicit S3TftFanBoard(NodeContext& ctx);
 
     void Assemble() override;
-    const char* Name() const override { return "c3_oled_voc"; }
-
-    // OLED 地址探测
-    bool I2cProbe(uint8_t addr) override;
+    const char* Name() const override { return "s3_tft_fan"; }
 
     // 传感器数据出口
     int ReadSensors(SensorReading* out, int max) override;
@@ -27,11 +25,9 @@ public:
     const char* SensorDetailJson() const override { return detail_json_; }
 
 private:
-    static constexpr int kI2cTimeoutMs = 100;
-
     i2c_master_bus_handle_t i2c_bus_ = nullptr;
 
-    // BLE 握手能力清单
+    // BLE/WiFi 握手能力清单
     char types_json_[128] = "[]";
     char detail_json_[512] = "[]";
 };

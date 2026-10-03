@@ -6,20 +6,25 @@
 #include "config.h"
 
 #include "app_config/app_config.hpp"
-#include "sensor_registry/sensor_registry.hpp"
+#include "sensor/sensor_reading.hpp"
 
-#include "sensors/sensor_device.hpp"
-#include "sensors/voc21_sensor.hpp"
+#include "voc21.hpp"
 
 #include "link/ble_link.hpp"
 #include "display/no_display.hpp"
 
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
+#include <cstdio>
+#include <cstring>
 
 namespace esp32node {
 
 static const char* TAG = "board-voc";
+
+static Voc21* s_voc21 = nullptr;
+static bool s_voc21_ok = false;
 
 C3OledVocBoard::C3OledVocBoard(NodeContext& ctx)
     : Board(ctx)
@@ -31,17 +36,6 @@ bool C3OledVocBoard::I2cProbe(uint8_t addr)
 {
     return i2c_bus_ != nullptr &&
            i2c_master_probe(i2c_bus_, addr, kI2cTimeoutMs) == ESP_OK;
-}
-
-int C3OledVocBoard::UartRead(uint8_t* buf, size_t len, uint32_t timeout_ms)
-{
-    return uart_read_bytes(project_c3_oled_voc::kVocUartPort, buf, len,
-                           pdMS_TO_TICKS(timeout_ms));
-}
-
-int C3OledVocBoard::UartWrite(const uint8_t* buf, size_t len)
-{
-    return uart_write_bytes(project_c3_oled_voc::kVocUartPort, buf, len);
 }
 
 void C3OledVocBoard::Assemble()
@@ -73,20 +67,32 @@ void C3OledVocBoard::Assemble()
     ESP_ERROR_CHECK(uart_set_pin(pin::kVocUartPort, pin::kVocUartTx, pin::kVocUartRx,
                                  UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
-    // ---- 传感器：驱动经本板的 UART 原语读数据，Start() 内自登记 ----
-    static Voc21Sensor voc21;
-    if (voc21.Start(*this, *c.config, *c.registry) != ESP_OK) {
+    // ---- 传感器：21VOC 组件直接绑定 UART 端口 ----
+    static Voc21 voc21(pin::kVocUartPort);
+    s_voc21 = &voc21;
+    s_voc21_ok = (voc21.Init() == ESP_OK);
+    if (!s_voc21_ok) {
         ESP_LOGW(TAG, "voc21 disabled, check uart wiring (tx=%d rx=%d)",
                  pin::kVocUartTx, pin::kVocUartRx);
     }
 
-    // ---- 链路：BLE 外设（本板是 BLE 节点，经 BLE 与 hub 握手/周期上报）----
+    // ---- 能力清单 JSON ----
+    if (s_voc21_ok) {
+        std::snprintf(types_json_, sizeof(types_json_), "[\"air_quality\"]");
+        std::snprintf(detail_json_, sizeof(detail_json_),
+                      "[{\"type\":\"air_quality\",\"model\":\"21VOC\","
+                      "\"format\":{\"tvoc\":\"int\",\"ch2o\":\"int\",\"eco2\":\"int\","
+                      "\"temp\":\"float\",\"humidity\":\"float\","
+                      "\"unit\":\"ug/ug/ppm/C/%%\"}}]");
+    }
+
+    // ---- 链路：BLE 外设 ----
 #if CONFIG_BT_ENABLED
-    static BleLink link(*c.config, *c.registry);
+    static BleLink link(*c.config, *this);
     link_ = &link;
 #endif
 
-    // ---- 显示屏：探测面板地址，成功则创建 VocDisplay，失败则 NoDisplay ----
+    // ---- 显示屏 ----
     uint8_t addr = 0;
     if (I2cProbe(0x3C)) {
         addr = 0x3C;
@@ -112,6 +118,31 @@ void C3OledVocBoard::Assemble()
         display_ = &no_display;
         ESP_LOGW(TAG, "oled not found at 0x3C/0x3D, using NoDisplay");
     }
+}
+
+int C3OledVocBoard::ReadSensors(SensorReading* out, int max)
+{
+    if (out == nullptr || max <= 0) {
+        return 0;
+    }
+    int n = 0;
+
+    if (s_voc21_ok && s_voc21 && n < max) {
+        uint16_t tvoc = 0, ch2o = 0, eco2 = 0;
+        float t = 0.0f, h = 0.0f;
+        if (s_voc21->Read(&tvoc, &ch2o, &eco2, &t, &h)) {
+            std::strncpy(out[n].type, "air_quality", sizeof(out[n].type) - 1);
+            out[n].type[sizeof(out[n].type) - 1] = '\0';
+            out[n].ts_ms = esp_timer_get_time() / 1000;
+            std::snprintf(out[n].values_json, sizeof(out[n].values_json),
+                          "{\"tvoc\":%u,\"ch2o\":%u,\"eco2\":%u,\"temp\":%.1f,\"humidity\":%.1f}",
+                          static_cast<unsigned>(tvoc), static_cast<unsigned>(ch2o),
+                          static_cast<unsigned>(eco2),
+                          static_cast<double>(t), static_cast<double>(h));
+            ++n;
+        }
+    }
+    return n;
 }
 
 Board& GetBoard(NodeContext& ctx)

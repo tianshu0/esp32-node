@@ -39,7 +39,7 @@ BUILD_DIR = REPO_ROOT / "build"
 FRAGMENT_REL = Path("build/node-build.sdkconfig.defaults")  # CMake 接收相对路径（正斜杠）
 BASE_DEFAULTS_REL = Path("sdkconfig.defaults")
 
-PROJECT_MACRO_RE = re.compile(r"^(CONFIG_NODE_PROJECT_\w+)=y$")
+PROJECT_MACRO_RE = re.compile(r"^(CONFIG_BOARD_\w+)=y$")
 PORT_RE = re.compile(r"^[A-Za-z0-9_./-]+$")
 
 
@@ -79,7 +79,7 @@ def load_project(name: str) -> dict:
               for item in append
               if PROJECT_MACRO_RE.match(item.strip())]
     if len(macros) != 1:
-        fail(f"{cfg_path}: sdkconfig_append 中必须恰好包含一个 CONFIG_NODE_PROJECT_*=y，"
+        fail(f"{cfg_path}: sdkconfig_append 中必须恰好包含一个 CONFIG_BOARD_*=y，"
              f"实际: {macros}")
     cfg["_project_macro"] = macros[0]
     cfg["_append"] = [item.strip() for item in append]
