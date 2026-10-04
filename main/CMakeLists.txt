@@ -15,10 +15,12 @@ set(PRIV_REQUIRES_LIST
     nvs_flash
     esp_lcd
     esp_driver_i2c
+    esp_driver_uart
     lvgl
     esp_lvgl_port
     waveshare__esp_oled_ssd1315
     sht3x
+    voc21
     fonts
 )
 
@@ -34,7 +36,11 @@ if(CONFIG_BOARD_ESP32C3_SHT3X)
     )
     list(APPEND INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/boards/esp32c3_sht3x")
 elseif(CONFIG_BOARD_ESP32C3_VOC21)
-    message(WARNING "BOARD_ESP32C3_VOC21 尚未迁移到新骨架")
+    list(APPEND SOURCES
+        "boards/esp32c3_voc21/board_esp32c3_voc21.cc"
+        "display/ssd1315_oled_display.cc"
+    )
+    list(APPEND INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/boards/esp32c3_voc21")
 elseif(CONFIG_BOARD_ESP32S3_TFT_FAN)
     message(WARNING "BOARD_ESP32S3_TFT_FAN 尚未迁移到新骨架")
 endif()

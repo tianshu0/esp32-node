@@ -1,12 +1,12 @@
 {
-    "type": "c3-oled-thp",
+    "type": "c3-voc21",
     "target": "esp32c3",
-    "description": "ESP32-C3 + SSD1315 OLED + SHT3X 温湿度 + BMP180 气压节点 (NimBLE Peripheral)",
+    "description": "ESP32-C3 + SSD1315 OLED + 21VOC 甲醛空气质量节点 (NimBLE Peripheral)",
     "builds": [
         {
-            "name": "c3-oled-thp",
+            "name": "c3-voc21",
             "sdkconfig_append": [
-                "CONFIG_NODE_PROJECT_C3_OLED_THP=y",
+                "CONFIG_BOARD_ESP32C3_VOC21=y",
 
                 "CONFIG_PARTITION_TABLE_CUSTOM=y",
                 "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions/partitions.csv\"",

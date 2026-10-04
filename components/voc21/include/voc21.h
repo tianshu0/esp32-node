@@ -7,10 +7,10 @@
 // 模块输出：TVOC / CH2O(甲醛) / eCO2 / 温度 / 湿度，UART 9600 8N1 连续上报。
 // 帧格式（12 字节，大端）：
 //   B0     0x2C          帧头
-//   B1-2   TVOC          ug/m³（uint16）
-//   B3-4   CH2O          ug/m³（uint16）
+//   B1-2   TVOC          ug/m3（uint16）
+//   B3-4   CH2O          ug/m3（uint16）
 //   B5-6   eCO2          ppm（uint16）
-//   B7-8   温度          0.1℃（int16，bit15 为符号位）
+//   B7-8   温度          0.1C（int16，bit15 为符号位）
 //   B9-10  湿度          0.1%RH（uint16）
 //   B11    校验和        (-(B0~B10 累加)) & 0xFF，即累加和的补码（取反加一）
 //
@@ -23,8 +23,6 @@
 #include "esp_err.h"
 #include "driver/uart.h"
 
-namespace esp32node {
-
 class Voc21 {
 public:
     static constexpr uint8_t kFrameHeader = 0x2C;
@@ -36,7 +34,7 @@ public:
     // 21VOC 上电即连续上报，无需初始化命令；保留 Init 以统一接口。
     esp_err_t Init();
 
-    // 采集最近一帧：TVOC(ug/m³) / CH2O(ug/m³) / eCO2(ppm) / 温度(℃) / 湿度(%RH)
+    // 采集最近一帧：TVOC(ug/m3) / CH2O(ug/m3) / eCO2(ppm) / 温度(C) / 湿度(%RH)
     // 任一指针为 nullptr 表示跳过该字段。返回 false 表示尚无有效帧。
     bool Read(uint16_t* tvoc, uint16_t* ch2o, uint16_t* eco2,
               float* temperature_c, float* humidity_pct);
@@ -62,5 +60,3 @@ private:
     // 调试：前几帧有效数据打印原始帧+解码值，用于核对字段映射
     int debug_dump_left_ = 3;
 };
-
-} // namespace esp32node

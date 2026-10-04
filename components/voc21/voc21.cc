@@ -1,9 +1,7 @@
-#include "voc21.hpp"
+#include "voc21.h"
 
 #include <cstdio>
 #include "esp_log.h"
-
-namespace esp32node {
 
 static const char* TAG = "voc21";
 
@@ -100,5 +98,3 @@ bool Voc21::Read(uint16_t* tvoc, uint16_t* ch2o, uint16_t* eco2,
     if (humidity_pct != nullptr)   *humidity_pct = humidity_pct_;
     return true;
 }
-
-} // namespace esp32node

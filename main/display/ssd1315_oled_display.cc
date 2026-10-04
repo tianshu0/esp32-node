@@ -162,6 +162,55 @@ void Ssd1315OledDisplay::SetupUI_128x64() {
     }
 #endif
 
+#if CONFIG_BOARD_ESP32C3_VOC21
+    // ---- 双卡片：TVOC（左）/ 甲醛（右），61x44 圆角线框 ----
+    // 卡片内：上行 图标 + 名称 + 单位小字，下行 大数字（18px 纯数字字体，整数 ug/m3，左对齐）
+    const struct {
+        const lv_image_dsc_t* icon;
+        const char* tag;
+        const lv_font_t* tag_font;
+        lv_obj_t** value;
+    } kVocCards[] = {
+        { &icon_air,   "TVOC", &lv_font_montserrat_12, &tvoc_value_label_ },
+        { &icon_flask, "甲醛", &lv_font_zh12,          &ch2o_value_label_ },
+    };
+
+    for (int i = 0; i < 2; ++i) {
+        const int cx = 1 + i * 65;  // 卡片左缘：1 / 66
+
+        lv_obj_t* card = lv_obj_create(screen);
+        lv_obj_remove_style_all(card);
+        lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_size(card, 61, 44);
+        lv_obj_set_pos(card, cx, 15);
+        lv_obj_set_style_border_width(card, 1, 0);
+        lv_obj_set_style_border_color(card, lv_color_black(), 0);
+        lv_obj_set_style_border_opa(card, LV_OPA_COVER, 0);
+        lv_obj_set_style_radius(card, 3, 0);
+
+        lv_obj_t* icon = lv_image_create(card);
+        lv_image_set_src(icon, kVocCards[i].icon);
+        lv_obj_set_pos(icon, 3, 3);
+
+        lv_obj_t* tag = lv_label_create(card);
+        lv_obj_set_style_text_font(tag, kVocCards[i].tag_font, 0);
+        lv_label_set_text(tag, kVocCards[i].tag);
+        lv_obj_set_pos(tag, 22, 4);
+
+        lv_obj_t* unit = lv_label_create(card);
+        lv_obj_set_style_text_font(unit, &lv_font_montserrat_10, 0);
+        lv_label_set_text(unit, "ug/m3");
+        lv_obj_set_pos(unit, 22, 19);
+
+        lv_obj_t* value = lv_label_create(card);
+        lv_obj_set_style_text_font(value, &lv_font_num18, 0);
+        lv_label_set_text(value, "--");
+        // 数字独占下排、左对齐（5 位以内不溢出卡片；单数字也不会孤悬右下角）
+        lv_obj_align(value, LV_ALIGN_BOTTOM_LEFT, 3, -3);
+        *kVocCards[i].value = value;
+    }
+#endif
+
     // ---- 底部装饰：线 + /// + 线 ----
     lv_obj_t* foot_l = lv_obj_create(screen);
     lv_obj_remove_style_all(foot_l);
@@ -206,6 +255,28 @@ void Ssd1315OledDisplay::UpdateSht3x(float temperature_c, float humidity_pct) {
     if (std::strcmp(humi_cache_, text) != 0) {
         std::strncpy(humi_cache_, text, sizeof(humi_cache_) - 1);
         lv_label_set_text(humi_value_label_, humi_cache_);
+    }
+}
+#endif
+
+#if CONFIG_BOARD_ESP32C3_VOC21
+void Ssd1315OledDisplay::UpdateVoc21(uint16_t tvoc_ug_m3, uint16_t ch2o_ug_m3) {
+    if (tvoc_value_label_ == nullptr || ch2o_value_label_ == nullptr) {
+        return;
+    }
+    DisplayLockGuard lock(this);
+
+    char text[16];
+    std::snprintf(text, sizeof(text), "%u", static_cast<unsigned>(tvoc_ug_m3));
+    if (std::strcmp(tvoc_cache_, text) != 0) {
+        std::strncpy(tvoc_cache_, text, sizeof(tvoc_cache_) - 1);
+        lv_label_set_text(tvoc_value_label_, tvoc_cache_);
+    }
+
+    std::snprintf(text, sizeof(text), "%u", static_cast<unsigned>(ch2o_ug_m3));
+    if (std::strcmp(ch2o_cache_, text) != 0) {
+        std::strncpy(ch2o_cache_, text, sizeof(ch2o_cache_) - 1);
+        lv_label_set_text(ch2o_value_label_, ch2o_cache_);
     }
 }
 #endif

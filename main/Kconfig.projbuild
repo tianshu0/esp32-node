@@ -3,7 +3,7 @@ menu "Node project"
 
     choice BOARD_TYPE
         prompt "Board type"
-        default BOARD_ESP32C3_SHT3X
+        default BOARD_ESP32C3_VOC21
         help
             选择目标项目。项目决定芯片、显示屏、传感器与外设的全套组合，
             对应 main/boards/<name>/ 目录。
