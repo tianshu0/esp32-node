@@ -11,6 +11,14 @@ private:
 
     lv_obj_t* status_label_ = nullptr;
 
+#if CONFIG_BOARD_ESP32C3_SHT3X
+    lv_obj_t* temp_value_label_ = nullptr;
+    lv_obj_t* humi_value_label_ = nullptr;
+    // 文本去重缓存：数值不变时跳过 lv_label_set_text，避免整屏 I2C 重绘
+    char temp_cache_[16] = {};
+    char humi_cache_[16] = {};
+#endif
+
     virtual bool Lock(int timeout_ms = 0) override;
     virtual void Unlock() override;
 
@@ -25,4 +33,9 @@ public:
     ~Ssd1315OledDisplay();
 
     virtual void SetupUI() override;
+
+#if CONFIG_BOARD_ESP32C3_SHT3X
+    // 更新 SHT3X 温湿度数值（需在 SetupUI 之后调用；内部自持有 LVGL 锁）
+    void UpdateSht3x(float temperature_c, float humidity_pct);
+#endif
 };

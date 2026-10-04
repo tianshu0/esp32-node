@@ -1,20 +1,26 @@
 #include "ble_board.h"
 #include "config.h"
 #include "ssd1315_oled_display.h"
+#include "sht3x.h"
 
 #include <esp_log.h>
 #include <driver/i2c_master.h>
 #include <esp_lcd_panel_ops.h>
 #include <esp_oled_ssd1315.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #define TAG "BoardEsp32C3Sht3x"
 
 class BoardEsp32C3Sht3x : public BleBoard {
-private:    
+private:
     i2c_master_bus_handle_t display_i2c_bus_;
     esp_lcd_panel_io_handle_t panel_io_ = nullptr;
     esp_lcd_panel_handle_t panel_ = nullptr;
     Display* display_ = nullptr;
+    // 具体显示类型：传感器数值推送用（显示初始化失败走 NoDisplay 时保持 nullptr）
+    Ssd1315OledDisplay* oled_display_ = nullptr;
+    Sht3x* sht3x_ = nullptr;
 
     void InitializeDisplayI2c() {
         i2c_master_bus_config_t bus_config = {
@@ -74,13 +80,44 @@ private:
         ESP_LOGI(TAG, "Turning display on");
         ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_, true));
 
-        display_ = new Ssd1315OledDisplay(panel_io_, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
+        oled_display_ = new Ssd1315OledDisplay(panel_io_, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
+        display_ = oled_display_;
+    }
+
+    void InitializeSht3x() {
+        // SHT3X 与 OLED 共用同一条 I2C 总线（7 位地址 0x44）
+        sht3x_ = new Sht3x(display_i2c_bus_);
+        if (sht3x_->Init() != ESP_OK) {
+            ESP_LOGW(TAG, "SHT3X not detected, check wiring (addr 0x44)");
+            delete sht3x_;
+            sht3x_ = nullptr;
+            return;
+        }
+
+        BaseType_t ret = xTaskCreate(SensorPollTask, "sht3x_poll", 3072, this, 2, nullptr);
+        if (ret != pdPASS) {
+            ESP_LOGE(TAG, "Failed to create SHT3X poll task");
+        }
+    }
+
+    // 周期采集 SHT3X 并推送到显示屏
+    static void SensorPollTask(void* arg) {
+        auto* self = static_cast<BoardEsp32C3Sht3x*>(arg);
+        while (true) {
+            float temperature = 0.0f;
+            float humidity = 0.0f;
+            if (self->sht3x_->Read(&temperature, &humidity) && self->oled_display_ != nullptr) {
+                self->oled_display_->UpdateSht3x(temperature, humidity);
+            }
+            vTaskDelay(pdMS_TO_TICKS(2000));
+        }
     }
 
 public:
     BoardEsp32C3Sht3x() : BleBoard() {
         InitializeDisplayI2c();
         InitializeSsd1315Display();
+        InitializeSht3x();
     }
 
     virtual Display* GetDisplay() override {

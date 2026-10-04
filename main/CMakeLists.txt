@@ -8,6 +8,20 @@ set(SOURCES
 
 set(INCLUDE_DIRS "." "display" "boards/common")
 
+# 注意：组件依赖必须无条件列出——requirements 预扫描阶段没有 sdkconfig，
+# 条件式 PRIV_REQUIRES 不会建立 include 传播（本地组件始终全量编译，
+# 未被引用的归档符号不会进固件，因此列出 sht3x 不会增加其他板型的体积）。
+set(PRIV_REQUIRES_LIST
+    nvs_flash
+    esp_lcd
+    esp_driver_i2c
+    lvgl
+    esp_lvgl_port
+    waveshare__esp_oled_ssd1315
+    sht3x
+    fonts
+)
+
 # 板型选择（Kconfig: Node project -> Board type）
 # 每块板显式列出自己的板级源文件与显示驱动，不使用 GLOB。
 # 注意：本文件在 Kconfig 加载前的组件 requirements 预扫描阶段也会被解析，
@@ -28,11 +42,5 @@ endif()
 idf_component_register(SRCS ${SOURCES}
                     INCLUDE_DIRS ${INCLUDE_DIRS}
                     WHOLE_ARCHIVE
-                    PRIV_REQUIRES
-                        nvs_flash
-                        esp_lcd
-                        esp_driver_i2c
-                        lvgl
-                        esp_lvgl_port
-                        waveshare__esp_oled_ssd1315
+                    PRIV_REQUIRES ${PRIV_REQUIRES_LIST}
                     )

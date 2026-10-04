@@ -11,6 +11,7 @@ idf_component_register(
         "src/lv_font_zh14.c"
         "src/lv_font_zh16.c"
         "src/lv_font_zh24.c"
+        "src/lv_font_num18.c"
     INCLUDE_DIRS "."
     REQUIRES lvgl
 )

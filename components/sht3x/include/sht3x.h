@@ -13,8 +13,6 @@
 #include "esp_err.h"
 #include "driver/i2c_master.h"
 
-namespace esp32node {
-
 class Sht3x {
 public:
     static constexpr uint8_t kAddrDefault = 0x44;
@@ -36,5 +34,3 @@ private:
     i2c_master_dev_handle_t dev_ = nullptr;
     uint8_t addr_ = kAddrDefault;
 };
-
-} // namespace esp32node

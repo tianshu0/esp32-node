@@ -1,10 +1,8 @@
-#include "sht3x.hpp"
+#include "sht3x.h"
 
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
-namespace esp32node {
 
 static const char* TAG = "sht3x";
 
@@ -107,5 +105,3 @@ bool Sht3x::Read(float* temperature_c, float* humidity_pct)
     }
     return true;
 }
-
-} // namespace esp32node

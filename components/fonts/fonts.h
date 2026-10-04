@@ -28,6 +28,9 @@ LV_FONT_DECLARE(lv_font_zh14);
 LV_FONT_DECLARE(lv_font_zh16);
 LV_FONT_DECLARE(lv_font_zh24);
 
+// 纯数字大字（0-9 . - / % C °，SimHei 18px）：传感器大数值显示用
+LV_FONT_DECLARE(lv_font_num18);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
