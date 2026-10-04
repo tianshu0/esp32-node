@@ -16,11 +16,18 @@ set(PRIV_REQUIRES_LIST
     esp_lcd
     esp_driver_i2c
     esp_driver_uart
+    esp_driver_spi
+    esp_driver_gpio
+    esp_driver_ledc
     lvgl
     esp_lvgl_port
     waveshare__esp_oled_ssd1315
+    espressif__esp_lcd_ili9341
+    espressif__esp_lcd_touch
+    atanisoft__esp_lcd_touch_xpt2046
     sht3x
     voc21
+    aht30
     fonts
 )
 
@@ -42,7 +49,11 @@ elseif(CONFIG_BOARD_ESP32C3_VOC21)
     )
     list(APPEND INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/boards/esp32c3_voc21")
 elseif(CONFIG_BOARD_ESP32S3_TFT_FAN)
-    message(WARNING "BOARD_ESP32S3_TFT_FAN 尚未迁移到新骨架")
+    list(APPEND SOURCES
+        "boards/esp32s3_tft_fan/board_esp32s3_tft_fan.cc"
+        "display/ili9341_tft_display.cc"
+    )
+    list(APPEND INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/boards/esp32s3_tft_fan")
 endif()
 
 idf_component_register(SRCS ${SOURCES}

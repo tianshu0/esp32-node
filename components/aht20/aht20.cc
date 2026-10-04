@@ -1,12 +1,10 @@
-#include "aht20.hpp"
+#include "aht20.h"
 
 #include <cstdio>
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
-namespace esp32node {
 
 static const char* TAG = "aht20";
 
@@ -157,5 +155,3 @@ bool Aht20::Read(float* temperature_c, float* humidity_pct)
     }
     return true;
 }
-
-} // namespace esp32node

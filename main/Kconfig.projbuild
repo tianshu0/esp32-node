@@ -3,7 +3,7 @@ menu "Node project"
 
     choice BOARD_TYPE
         prompt "Board type"
-        default BOARD_ESP32C3_VOC21
+        default BOARD_ESP32S3_TFT_FAN
         help
             选择目标项目。项目决定芯片、显示屏、传感器与外设的全套组合，
             对应 main/boards/<name>/ 目录。
@@ -19,8 +19,9 @@ menu "Node project"
             select NODE_SENSOR_VOC21
             select NODE_DISPLAY_SSD1315
 
-        config BOARD_ESP32S3_TFT_FANX
-            bool "ESP32S3 TFT 风扇控制节点 (ILI9341 + XPT2046)"
+        config BOARD_ESP32S3_TFT_FAN
+            bool "ESP32S3 TFT 风扇控制节点 (ILI9341 + XPT2046 + AHT30)"
+            select NODE_SENSOR_AHT30
             select NODE_DISPLAY_ILI9341_240X320
             select NODE_TOUCH_XPT2046
     endchoice
@@ -34,7 +35,7 @@ menu "Node project"
     config NODE_SENSOR_SHT3X
         bool
 
-    config NODE_SENSOR_AHT20
+    config NODE_SENSOR_AHT30
         bool
 
     config NODE_SENSOR_BMP180

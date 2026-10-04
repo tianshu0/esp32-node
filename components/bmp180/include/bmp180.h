@@ -15,8 +15,6 @@
 #include "esp_err.h"
 #include "driver/i2c_master.h"
 
-namespace esp32node {
-
 class Bmp180 {
 public:
     static constexpr uint8_t kAddr = 0x77;
@@ -61,5 +59,3 @@ private:
 
     float sea_level_hpa_ = 1013.25f;
 };
-
-} // namespace esp32node

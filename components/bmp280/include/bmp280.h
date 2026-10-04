@@ -14,8 +14,6 @@
 #include "esp_err.h"
 #include "driver/i2c_master.h"
 
-namespace esp32node {
-
 class Bmp280 {
 public:
     static constexpr uint8_t kAddrPrimary   = 0x76;  // SDO 接地
@@ -58,5 +56,3 @@ private:
     int16_t dig_p8_ = 0;
     int16_t dig_p9_ = 0;
 };
-
-} // namespace esp32node

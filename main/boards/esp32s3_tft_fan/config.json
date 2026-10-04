@@ -1,12 +1,12 @@
 {
-    "type": "s3-tft-fan",
+    "type": "esp32s3-tft-fan",
     "target": "esp32s3",
-    "description": "ESP32-S3 N16R8 + ILI9341 240x320 TFT + XPT2046 触摸 + AHT20/BMP280 + PWM 风扇 (WiFi 配网, 无 BLE)",
+    "description": "ESP32-S3 N16R8 + ILI9341 240x320 TFT + XPT2046 触摸 + AHT30 温湿度 + PWM 风扇 (无 BLE)",
     "builds": [
         {
-            "name": "s3-tft-fan",
+            "name": "esp32s3-tft-fan",
             "sdkconfig_append": [
-                "CONFIG_NODE_PROJECT_S3_TFT_FAN=y",
+                "CONFIG_BOARD_ESP32S3_TFT_FAN=y",
 
                 "CONFIG_ESP_MAIN_TASK_STACK_SIZE=10240",
 
@@ -14,8 +14,6 @@
 
                 "CONFIG_SPIRAM=y",
                 "CONFIG_SPIRAM_MODE_OCT=y",
-                "CONFIG_SPIRAM_OCTAL_SPIRAM_ACCESS_DELAY=0",
-                "CONFIG_SPIRAM_OCTAL_SPIRAM_INIT_DELAY=0",
                 "CONFIG_SPIRAM_USE_MALLOC=y",
                 "CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384",
                 "CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=0",
@@ -26,12 +24,8 @@
 
                 "CONFIG_BT_ENABLED=n",
 
-                "CONFIG_LV_MEM_SIZE=32768",
-                "CONFIG_LV_FONT_MONTSERRAT_10=y",
-                "CONFIG_LV_FONT_MONTSERRAT_12=y",
+                "CONFIG_LV_MEM_SIZE_KILOBYTES=32",
                 "CONFIG_LV_FONT_MONTSERRAT_14=y",
-                "CONFIG_LV_FONT_MONTSERRAT_20=y",
-                "CONFIG_LV_FONT_MONTSERRAT_24=y",
                 "CONFIG_LV_FONT_MONTSERRAT_40=y",
                 "CONFIG_LV_FONT_MONTSERRAT_44=y",
 

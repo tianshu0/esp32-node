@@ -1,11 +1,9 @@
-#include "bmp180.hpp"
+#include "bmp180.h"
 
 #include <cmath>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
-namespace esp32node {
 
 static const char* TAG = "bmp180";
 
@@ -212,5 +210,3 @@ bool Bmp180::Read(float* temperature_c, float* pressure_hpa, float* altitude_m)
     }
     return true;
 }
-
-} // namespace esp32node
