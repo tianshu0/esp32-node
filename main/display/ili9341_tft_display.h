@@ -30,10 +30,8 @@ public:
     virtual void SetupUI() override;
     virtual void SetStatus(const char* status) override;
 
-    // 配网模式界面：独立 LVGL screen 承载，不销毁主界面；
-    // 退出配网时切回主界面并销毁配网页
-    virtual void ShowProvisioning(const char* ssid, const char* url) override;
-    virtual void HideProvisioning() override;
+    // 网络信息：显示在状态栏副标签（联网后 SSID/IP，配网时热点名/网关）
+    virtual void UpdateNetworkInfo(const char* ssid, const char* ip) override;
 
 #if CONFIG_BOARD_ESP32S3_TFT_FAN
     // 注入风扇开关动作（LEDC 由板级控制，显示类不认识风扇硬件）
@@ -55,14 +53,10 @@ private:
     virtual void Unlock() override;
 
     void SetupUI_240x320();
-    void BuildProvisioningScreen(const char* ssid, const char* url);
 
     esp_lcd_panel_io_handle_t panel_io_ = nullptr;
     esp_lcd_panel_handle_t panel_ = nullptr;
     lv_display_t* lv_display_ = nullptr;
-
-    lv_obj_t* main_screen_ = nullptr;   // 主界面 screen（SetupUI 时捕获）
-    lv_obj_t* prov_screen_ = nullptr;   // 配网页 screen（进入配网时创建）
 #if CONFIG_NODE_TOUCH_XPT2046
     esp_lcd_touch_handle_t touch_handle_ = nullptr;
 #endif

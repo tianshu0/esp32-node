@@ -7,10 +7,13 @@
 #include <esp_netif.h>
 #include <esp_event.h>
 #include <esp_mac.h>
+#include <esp_sntp.h>
 #include <nvs.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <vector>
 
 #define TAG "WifiBoard"
@@ -51,6 +54,10 @@ void WifiBoard::InitializeNetwork() {
     ESP_ERROR_CHECK(esp_wifi_start());
     wifi_started_ = true;
 
+    // 时区：中国标准时间 UTC+8（SNTP 校时在拿到 IP 后启动）
+    setenv("TZ", "CST-8", 1);
+    tzset();
+
     BaseType_t ret = xTaskCreate(WifiTask, "wifi_mgr", 4096, this, 4, nullptr);
     if (ret != pdPASS) {
         ESP_LOGE(TAG, "Failed to create wifi task");
@@ -70,6 +77,32 @@ void WifiBoard::WifiEventHandler(void* arg, esp_event_base_t base,
     } else if (base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         xEventGroupClearBits(self->wifi_events_, kDisconnectedBit);
         xEventGroupSetBits(self->wifi_events_, kConnectedBit);
+        self->OnGotIp(static_cast<ip_event_got_ip_t*>(event_data)->ip_info.ip.addr);
+    }
+}
+
+// 首次拿到 IP：启动 SNTP 校时；SSID/IP 推送到状态栏副标签
+void WifiBoard::OnGotIp(uint32_t ip_netorder) {
+    if (!sntp_started_) {
+        esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
+        esp_sntp_setservername(0, "ntp.aliyun.com");
+        esp_sntp_init();
+        sntp_started_ = true;
+        ESP_LOGI(TAG, "sntp started");
+    }
+
+    char ip[16];
+    const uint8_t* b = reinterpret_cast<const uint8_t*>(&ip_netorder);
+    snprintf(ip, sizeof(ip), "%u.%u.%u.%u", b[0], b[1], b[2], b[3]);
+
+    wifi_config_t cfg = {};
+    esp_wifi_get_config(WIFI_IF_STA, &cfg);
+    char ssid[33] = "";
+    strncpy(ssid, reinterpret_cast<const char*>(cfg.sta.ssid), sizeof(ssid) - 1);
+
+    ESP_LOGI(TAG, "network: %s %s", ssid, ip);
+    if (Display* display = GetDisplay(); display != nullptr) {
+        display->UpdateNetworkInfo(ssid, ip);
     }
 }
 
@@ -185,7 +218,7 @@ void WifiBoard::EnterProvisioning() {
         return;
     }
 
-    // 屏幕配网页：展示热点名与门户地址
+    // 主界面状态栏提示热点信息（不切屏，湿度和风扇控制保持可用）
     esp_netif_t* ap_netif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
     char url[24];
     if (ap_netif != nullptr) {
@@ -196,7 +229,7 @@ void WifiBoard::EnterProvisioning() {
         snprintf(url, sizeof(url), "192.168.4.1");
     }
     if (Display* display = GetDisplay(); display != nullptr) {
-        display->ShowProvisioning(ap_ssid_.c_str(), url);
+        display->UpdateNetworkInfo(ap_ssid_.c_str(), url);
     }
     ESP_LOGI(TAG, "provisioning: connect ap '%s' then open http://%s",
              ap_ssid_.c_str(), url);
@@ -211,9 +244,6 @@ void WifiBoard::ExitProvisioning() {
     esp_wifi_disconnect();
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     vTaskDelay(pdMS_TO_TICKS(100));
-    if (Display* display = GetDisplay(); display != nullptr) {
-        display->HideProvisioning();
-    }
 }
 
 void WifiBoard::ShowStatus(const char* status) {

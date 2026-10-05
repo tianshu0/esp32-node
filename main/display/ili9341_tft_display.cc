@@ -194,88 +194,18 @@ void Ili9341TftDisplay::SetupUI() {
 #endif
 }
 
-// ---------------- 配网模式界面 ----------------
+// ---------------- 状态栏网络信息 ----------------
 
-void Ili9341TftDisplay::ShowProvisioning(const char* ssid, const char* url) {
-    DisplayLockGuard lock(this);
-    if (!lock) {
-        return;
-    }
-    if (prov_screen_ == nullptr) {
-        BuildProvisioningScreen(ssid, url);
-    }
-    lv_screen_load(prov_screen_);
-}
-
-void Ili9341TftDisplay::HideProvisioning() {
-    if (prov_screen_ == nullptr) {
+void Ili9341TftDisplay::UpdateNetworkInfo(const char* /*ssid*/, const char* ip) {
+    if (wifi_st_label_ == nullptr) {
         return;
     }
     DisplayLockGuard lock(this);
     if (!lock) {
         return;
     }
-    if (main_screen_ != nullptr) {
-        lv_screen_load(main_screen_);
-    }
-    lv_obj_delete(prov_screen_);
-    prov_screen_ = nullptr;
-}
-
-void Ili9341TftDisplay::BuildProvisioningScreen(const char* ssid, const char* url) {
-    prov_screen_ = lv_obj_create(nullptr);
-    lv_obj_set_style_bg_color(prov_screen_, lv_color_hex(kColorBg), 0);
-    lv_obj_set_style_bg_opa(prov_screen_, LV_OPA_COVER, 0);
-    lv_obj_set_style_pad_all(prov_screen_, 0, 0);
-    lv_obj_set_style_text_color(prov_screen_, lv_color_hex(0xEAF6FF), 0);
-
-    // ---- 顶部标题条（与主界面状态栏同风格）----
-    lv_obj_t* bar = lv_obj_create(prov_screen_);
-    lv_obj_set_size(bar, width_, 48);
-    lv_obj_set_pos(bar, 0, 0);
-    lv_obj_set_style_radius(bar, 0, 0);
-    lv_obj_set_style_bg_color(bar, lv_color_hex(0x09254C), 0);
-    lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(bar, 0, 0);
-    lv_obj_set_style_pad_all(bar, 0, 0);
-    lv_obj_clear_flag(bar, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t* title = lv_label_create(bar);
-    lv_obj_set_style_text_font(title, &lv_font_zh16, 0);
-    lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
-    lv_label_set_text(title, "配网模式");
-    lv_obj_center(title);
-
-    // ---- 引导内容 ----
-    lv_obj_t* hint1 = lv_label_create(prov_screen_);
-    lv_obj_set_style_text_font(hint1, &lv_font_zh14, 0);
-    lv_obj_set_style_text_color(hint1, lv_color_hex(0x8DB9E8), 0);
-    lv_label_set_text(hint1, "请用手机连接热点");
-    lv_obj_align(hint1, LV_ALIGN_TOP_MID, 0, 86);
-
-    lv_obj_t* ssid_label = lv_label_create(prov_screen_);
-    lv_obj_set_style_text_font(ssid_label, &lv_font_montserrat_20, 0);
-    lv_obj_set_style_text_color(ssid_label, lv_color_hex(0x12D8EF), 0);
-    lv_label_set_text(ssid_label, ssid);
-    lv_obj_align(ssid_label, LV_ALIGN_TOP_MID, 0, 112);
-
-    lv_obj_t* hint2 = lv_label_create(prov_screen_);
-    lv_obj_set_style_text_font(hint2, &lv_font_zh14, 0);
-    lv_obj_set_style_text_color(hint2, lv_color_hex(0x8DB9E8), 0);
-    lv_label_set_text(hint2, "浏览器打开");
-    lv_obj_align(hint2, LV_ALIGN_TOP_MID, 0, 168);
-
-    lv_obj_t* url_label = lv_label_create(prov_screen_);
-    lv_obj_set_style_text_font(url_label, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(url_label, lv_color_hex(0x12D8EF), 0);
-    lv_label_set_text(url_label, url);
-    lv_obj_align(url_label, LV_ALIGN_TOP_MID, 0, 192);
-
-    lv_obj_t* status = lv_label_create(prov_screen_);
-    lv_obj_set_style_text_font(status, &lv_font_zh10, 0);
-    lv_obj_set_style_text_color(status, lv_color_hex(0x48617F), 0);
-    lv_label_set_text(status, "等待配置");
-    lv_obj_align(status, LV_ALIGN_BOTTOM_MID, 0, -24);
+    // 状态栏副标签只显示 IP（联网后设备 IP；配网时 SoftAP 网关地址）
+    lv_label_set_text(wifi_st_label_, ip);
 }
 
 #if CONFIG_BOARD_ESP32S3_TFT_FAN
@@ -284,7 +214,6 @@ void Ili9341TftDisplay::SetupUI_240x320() {
     DisplayLockGuard lock(this);
 
     lv_obj_t* screen = lv_screen_active();
-    main_screen_ = screen;
     lv_obj_set_style_bg_color(screen, lv_color_hex(kColorBg), 0);
     lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(screen, 0, 0);
@@ -325,6 +254,9 @@ void Ili9341TftDisplay::SetupUI_240x320() {
     wifi_st_label_ = lv_label_create(sb);
     lv_obj_set_style_text_font(wifi_st_label_, &lv_font_zh10, 0);
     lv_obj_set_style_text_color(wifi_st_label_, lv_color_hex(0x8DB9E8), 0);
+    // SSID+IP 可能超宽：固定宽度，超长以省略号截断，不侵占右侧时间区
+    lv_obj_set_width(wifi_st_label_, 118);
+    lv_label_set_long_mode(wifi_st_label_, LV_LABEL_LONG_DOT);
     lv_label_set_text(wifi_st_label_, "");
     lv_obj_align(wifi_st_label_, LV_ALIGN_TOP_LEFT, 50, 32);
 

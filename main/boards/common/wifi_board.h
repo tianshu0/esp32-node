@@ -46,6 +46,8 @@ private:
     static void WifiTask(void* arg);
     static void WifiEventHandler(void* arg, esp_event_base_t base,
                                  int32_t event_id, void* event_data);
+    // 首次拿到 IP：启动 SNTP 校时 + 状态栏推送 SSID/IP
+    void OnGotIp(uint32_t ip_netorder);
 
     bool LoadCredentials(std::string& ssid, std::string& password);
     void SaveCredentials(const std::string& ssid, const std::string& password);
@@ -58,6 +60,7 @@ private:
     WebPortal portal_;
     EventGroupHandle_t wifi_events_ = nullptr;
     bool wifi_started_ = false;
+    bool sntp_started_ = false;
 
     // 配网状态（wifi_task 写；EnterProvisioning/ExitProvisioning 仅在 wifi_task 调用）
     std::atomic<bool> provisioning_{false};
