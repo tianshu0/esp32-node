@@ -196,6 +196,8 @@ private:
             FanSetPower(on ? 100 : 0);
             ESP_LOGI(TAG, "fan %s", on ? "on" : "off");
         });
+        // 长按风扇按钮 -> 手动重新配网（转发给 WifiBoard 状态机）
+        tft_display_->SetProvisionRequestCallback([this]() { RequestProvisioning(); });
         display_ = tft_display_;
     }
 
@@ -242,6 +244,9 @@ public:
         if (ret != pdPASS) {
             ESP_LOGE(TAG, "Failed to create env poll task");
         }
+
+        // 联网 + 配网（WifiBoard 状态机；显示屏已就绪，须在构造末尾调用）
+        InitializeNetwork();
 
         ESP_LOGI(TAG, "assembled: aht30=%d touch=%d",
                  aht30_ok_, touch_handle_ != nullptr);

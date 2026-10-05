@@ -13,7 +13,8 @@ const LV_FONT_CONV = path.join(__dirname, 'node_modules', 'lv_font_conv', 'lv_fo
 const SOURCE_TTF = 'C:/Windows/Fonts/simhei.ttf';
 
 // Hardcode symbols as a JS string (no file I/O encoding risk)
-const SYMS = '环境监测节点风扇控制湿度正常已开启已关闭运行中已停止偏高状态开关自动规则手动设置模式等待连接蓝牙网络时间日期周日快笼子温度启闭高湿正连网周期设待启关闭运行中停止偏蓝牙等环测节温自规控备模未一二三四五六智能通风守护健康·在线配点击甲醛';
+// 配网页新增：请用机热打浏览器成功
+const SYMS = '环境监测节点风扇控制湿度正常已开启已关闭运行中已停止偏高状态开关自动规则手动设置模式等待连接蓝牙网络时间日期周日快笼子温度启闭高湿正连网周期设待启关闭运行中停止偏蓝牙等环测节温自规控备模未一二三四五六智能通风守护健康·在线配点击甲醛请用机热打浏览器成功';
 
 console.log('SYMS.length =', SYMS.length);
 console.log('feng cp: 0x' + '风'.codePointAt(0).toString(16));

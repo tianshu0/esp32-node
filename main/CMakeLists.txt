@@ -13,6 +13,10 @@ set(INCLUDE_DIRS "." "display" "boards/common")
 # 未被引用的归档符号不会进固件，因此列出 sht3x 不会增加其他板型的体积）。
 set(PRIV_REQUIRES_LIST
     nvs_flash
+    esp_wifi
+    esp_netif
+    esp_event
+    web_portal
     esp_lcd
     esp_driver_i2c
     esp_driver_uart
@@ -51,6 +55,7 @@ elseif(CONFIG_BOARD_ESP32C3_VOC21)
 elseif(CONFIG_BOARD_ESP32S3_TFT_FAN)
     list(APPEND SOURCES
         "boards/esp32s3_tft_fan/board_esp32s3_tft_fan.cc"
+        "boards/common/wifi_board.cc"
         "display/ili9341_tft_display.cc"
     )
     list(APPEND INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/boards/esp32s3_tft_fan")

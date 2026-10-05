@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>节点配网</title>
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body>
+    <h2>节点配网</h2>
+    <div id="aplist"></div>
+    <p><button onclick="scan()">扫描网络</button></p>
+    <p>
+      网络名称<br>
+      <input id="ssid" placeholder="选择或输入 WiFi 名称">
+    </p>
+    <p>
+      密码<br>
+      <input id="pass" type="password" placeholder="WiFi 密码">
+    </p>
+    <p><button onclick="save()">连 接</button></p>
+    <div id="msg"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>

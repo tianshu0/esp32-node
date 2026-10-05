@@ -11,6 +11,11 @@ public:
 
     virtual void SetStatus(const char* status);
     virtual void SetupUI();
+
+    // 配网模式界面：WifiBoard 进入/退出配网模式时调用。
+    // 默认空实现（无屏或未实现配网页的显示类零影响）。
+    virtual void ShowProvisioning(const char* /*ssid*/, const char* /*url*/) {}
+    virtual void HideProvisioning() {}
     
     inline int width() const { return width_; }
     inline int height() const { return height_; }

@@ -30,9 +30,17 @@ public:
     virtual void SetupUI() override;
     virtual void SetStatus(const char* status) override;
 
+    // 配网模式界面：独立 LVGL screen 承载，不销毁主界面；
+    // 退出配网时切回主界面并销毁配网页
+    virtual void ShowProvisioning(const char* ssid, const char* url) override;
+    virtual void HideProvisioning() override;
+
 #if CONFIG_BOARD_ESP32S3_TFT_FAN
     // 注入风扇开关动作（LEDC 由板级控制，显示类不认识风扇硬件）
     void SetFanToggleCallback(std::function<void(bool)> callback);
+
+    // 注入手动重配网动作（风扇按钮长按 5s 触发，由板级转发给 WifiBoard）
+    void SetProvisionRequestCallback(std::function<void()> callback);
 
     // 推送温湿度数据；传感器缺失时值传 NAN，界面显示 "--"
     // （V2 布局仅展示湿度与风扇状态，temperature_c 预留）
@@ -47,10 +55,14 @@ private:
     virtual void Unlock() override;
 
     void SetupUI_240x320();
+    void BuildProvisioningScreen(const char* ssid, const char* url);
 
     esp_lcd_panel_io_handle_t panel_io_ = nullptr;
     esp_lcd_panel_handle_t panel_ = nullptr;
     lv_display_t* lv_display_ = nullptr;
+
+    lv_obj_t* main_screen_ = nullptr;   // 主界面 screen（SetupUI 时捕获）
+    lv_obj_t* prov_screen_ = nullptr;   // 配网页 screen（进入配网时创建）
 #if CONFIG_NODE_TOUCH_XPT2046
     esp_lcd_touch_handle_t touch_handle_ = nullptr;
 #endif
@@ -74,6 +86,7 @@ private:
 
     bool fan_running_ = false;
     std::function<void(bool)> fan_callback_;
+    std::function<void()> provision_request_cb_;
 
     // 文本去重缓存：湿度不变时跳过 set_text，避免无谓重绘
     char humi_cache_[16] = {};
