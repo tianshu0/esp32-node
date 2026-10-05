@@ -4,6 +4,7 @@ set(SOURCES
     "application.cc"
     "display/display.cc"
     "boards/common/board.cc"
+    "assets/src/ui_icons.c"
 )
 
 set(INCLUDE_DIRS "." "display" "boards/common")

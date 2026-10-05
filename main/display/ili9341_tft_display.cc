@@ -2,6 +2,7 @@
 
 #include <esp_lvgl_port.h>
 #include "fonts.h"
+#include "assets/src/ui_icons.h"
 
 #include <esp_log.h>
 #include <esp_system.h>
@@ -52,48 +53,6 @@ void MakeStatusTag(lv_obj_t* parent, const char* text, uint32_t dot_color,
     lv_obj_set_style_text_color(lbl, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_font(lbl, &lv_font_zh14, 0);
     *lbl_out = lbl;
-}
-
-// 风扇画布（软件绘制外圆环 + 3 叶片 + 轴芯）
-lv_obj_t* MakeFanCanvas(lv_obj_t* parent, int size,
-                        lv_color_t bg, lv_color_t ring,
-                        lv_color_t blade, lv_color_t hub) {
-    lv_obj_t* cv = lv_canvas_create(parent);
-    uint8_t* buf = static_cast<uint8_t*>(malloc(size * size * 2));
-    lv_canvas_set_buffer(cv, buf, size, size, LV_COLOR_FORMAT_RGB565);
-    lv_canvas_fill_bg(cv, bg, LV_OPA_COVER);
-    lv_obj_set_style_pad_all(cv, 0, 0);
-    lv_obj_set_style_border_width(cv, 0, 0);
-    lv_obj_clear_flag(cv, LV_OBJ_FLAG_SCROLLABLE);
-
-    const float cx = (size - 1) * 0.5f;
-    const float cy = (size - 1) * 0.5f;
-    const float R  = (size - 1) * 0.5f;
-    const float hub_r     = R * 0.16f;
-    const float b_in      = hub_r;
-    const float b_out     = R - 1.2f;
-    const float blade_half = 36.0f;
-
-    for (int y = 0; y < size; ++y) {
-        for (int x = 0; x < size; ++x) {
-            float dx = x - cx, dy = y - cy;
-            float r = sqrtf(dx * dx + dy * dy);
-            if (r > R) continue;
-            float ang = atan2f(dx, -dy) * 180.0f / 3.14159265f;
-            if (ang < 0) ang += 360.0f;
-            lv_color_t c;
-            bool draw = false;
-            if (r <= hub_r) { c = hub; draw = true; }
-            else if (r >= R - 1.0f) { c = ring; draw = true; }
-            else if (r >= b_in && r <= b_out) {
-                float d0 = fmodf(ang, 120.0f);
-                float dt = (d0 > 60.0f) ? 120.0f - d0 : d0;
-                if (dt <= blade_half) { c = blade; draw = true; }
-            }
-            if (draw) lv_canvas_set_px(cv, x, y, c, LV_OPA_COVER);
-        }
-    }
-    return cv;
 }
 
 // 本地时间 → "HH:MM"，日期 → "YYYY-MM-DD 周X"；时间未同步返回 false
@@ -293,9 +252,9 @@ void Ili9341TftDisplay::SetupUI_240x320() {
     lv_obj_clear_flag(title_row, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_align(title_row, LV_ALIGN_TOP_MID, 0, 50);
 
-    MakeFanCanvas(title_row, 18,
-                  lv_color_hex(kColorBg), lv_color_hex(0x12D8EF),
-                  lv_color_hex(0x12D8EF), lv_color_hex(0x12D8EF));
+    // 房子图标（SVG 预转换位图，见 main/assets/scripts/gen_assets.js）
+    lv_obj_t* house_icon = lv_image_create(title_row);
+    lv_image_set_src(house_icon, &img_house);
     lv_obj_t* title = lv_label_create(title_row);
     lv_obj_set_style_text_font(title, &lv_font_zh16, 0);
     lv_obj_set_style_text_color(title, lv_color_hex(0xEAF6FF), 0);
@@ -369,9 +328,9 @@ void Ili9341TftDisplay::SetupUI_240x320() {
     lv_obj_clear_flag(st_row, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_align(st_row, LV_ALIGN_TOP_LEFT, 114, 30);
 
-    MakeFanCanvas(st_row, 20,
-                  lv_color_hex(0x0B2C59), lv_color_hex(0x1C86E5),
-                  lv_color_hex(0x12D8EF), lv_color_hex(0xFFFFFF));
+    // 风扇图标（SVG 预转换位图）
+    lv_obj_t* fan_icon = lv_image_create(st_row);
+    lv_image_set_src(fan_icon, &img_fan);
     lv_obj_t* st_title = lv_label_create(st_row);
     lv_obj_set_style_text_font(st_title, &lv_font_zh14, 0);
     lv_obj_set_style_text_color(st_title, lv_color_hex(0xB9D8F7), 0);

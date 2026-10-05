@@ -1,0 +1,12 @@
+{
+  "name": "esp32-node-assets",
+  "version": "1.0.0",
+  "private": true,
+  "description": "esp32-node 开发工具：UI 图标位图生成（SVG -> LVGL C 数组）",
+  "scripts": {
+    "gen-assets": "node gen_assets.js"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "2.6.2"
+  }
+}
